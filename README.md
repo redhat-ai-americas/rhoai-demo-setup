@@ -122,8 +122,8 @@ ansible-playbook playbooks/setup-cluster.ansible.yml
 ### 1. Clone the Repository
 
 ```sh
-git clone https://github.com/your-org/spinup-ai.git
-cd spinup-ai
+git clone https://github.com/redhat-ai-americas/rhoai-demo-setup.git
+cd rhoai-demo-setup
 ```
 
 ### 2. Run the Ansible Playbooks
