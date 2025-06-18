@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - demo-vllm-ns.yaml
+  - setup-minio.yaml
+  - vllm-servingruntime.yaml
+  - inferenceservice.yaml

@@ -1,0 +1,25 @@
+- name: Install Minio Object Storage
+  hosts: localhost
+  vars:
+    repo_dir: "{{ lookup('env', 'REPO_DIR') | default(playbook_dir | dirname, true) }}"
+  tasks:
+    - name: Apply 14-minio kustomize manifests
+      shell: "oc apply -k {{ repo_dir }}/components/14-minio"
+      register: minio_apply
+      retries: 3
+      delay: 10
+      until: minio_apply.rc == 0
+
+    - name: Wait for minio pod to be running and ready
+      shell: |
+        oc get pods -n minio-storage -o json | jq -r '.items[] | select(.metadata.name | test("^minio-")) | select(.status.phase=="Running") | select(.status.containerStatuses[0].ready==true) | .metadata.name'
+      register: minio_named_pod_ready
+      retries: 20
+      delay: 15
+      until: minio_named_pod_ready.stdout != ""
+      changed_when: false
+
+    - name: Print minio pod name
+      debug:
+        msg: "minio pod is running and ready: {{ minio_named_pod_ready.stdout }}"
+      when: minio_named_pod_ready.stdout != ""

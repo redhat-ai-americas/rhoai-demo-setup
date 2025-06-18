@@ -1,0 +1,27 @@
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - job.yaml
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+configMapGenerator:
+  - name: job-generic
+    namespace: nvidia-gpu-operator
+    files:
+      - job.sh
+      - ocp.sh
+
+patches:
+  - target:
+      kind: Job
+      name: job-generic
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/env/0
+        value:
+          name: INSTANCE_TYPE
+          value: g6e.16xlarge

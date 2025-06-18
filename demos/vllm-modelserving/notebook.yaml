@@ -1,0 +1,330 @@
+apiVersion: kubeflow.org/v1
+kind: Notebook
+metadata:
+  generateName: demo-vllm-wb-
+  annotations:
+    kubeflow-resource-stopped: odh-notebook-controller-lock
+    openshift.io/scc: restricted-v2
+    opendatahub.io/image-display-name: Standard Data Science
+    k8s.ovn.org/pod-networks: '{"default":{"ip_addresses":["10.130.2.97/23"],"mac_address":"0a:58:0a:82:02:61","gateway_ips":["10.130.2.1"],"routes":[{"dest":"10.128.0.0/14","nextHop":"10.130.2.1"},{"dest":"172.30.0.0/16","nextHop":"10.130.2.1"},{"dest":"169.254.0.5/32","nextHop":"10.130.2.1"},{"dest":"100.64.0.0/16","nextHop":"10.130.2.1"}],"ip_address":"10.130.2.97/23","gateway_ip":"10.130.2.1","role":"primary"}}'
+    opendatahub.io/accelerator-name: nvidia-gpu-profile
+    openshift.io/description: ''
+    openshift.io/display-name: demo-vllm-wb
+    opendatahub.io/username: admin
+  labels:
+    app: demo-vllm-wb
+    opendatahub.io/workbenches: 'true'
+    statefulset: demo-vllm-wb
+    opendatahub.io/dashboard: 'true'
+    notebook-name: demo-vllm-wb
+spec:
+  restartPolicy: Always
+  serviceAccountName: demo-vllm-wb
+  imagePullSecrets:
+    - name: demo-vllm-wb-dockercfg-jj4ss
+  priority: 0
+  schedulerName: default-scheduler
+  enableServiceLinks: false
+  terminationGracePeriodSeconds: 30
+  preemptionPolicy: PreemptLowerPriority
+  nodeName: ip-10-0-44-167.us-east-2.compute.internal
+  securityContext:
+    seLinuxOptions:
+      level: 's0:c30,c10'
+    fsGroup: 1000890000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - resources:
+        limits:
+          cpu: '2'
+          memory: 8Gi
+          nvidia.com/gpu: '1'
+        requests:
+          cpu: '1'
+          memory: 8Gi
+          nvidia.com/gpu: '1'
+      readinessProbe:
+        httpGet:
+          path: /notebook/demo-vllm/demo-vllm-wb/api
+          port: notebook-port
+          scheme: HTTP
+        initialDelaySeconds: 10
+        timeoutSeconds: 1
+        periodSeconds: 5
+        successThreshold: 1
+        failureThreshold: 3
+      terminationMessagePath: /dev/termination-log
+      name: demo-vllm-wb
+      livenessProbe:
+        httpGet:
+          path: /notebook/demo-vllm/demo-vllm-wb/api
+          port: notebook-port
+          scheme: HTTP
+        initialDelaySeconds: 10
+        timeoutSeconds: 1
+        periodSeconds: 5
+        successThreshold: 1
+        failureThreshold: 3
+      env:
+        - name: NOTEBOOK_ARGS
+          value: |-
+            --ServerApp.port=8888
+                              --ServerApp.token=''
+                              --ServerApp.password=''
+                              --ServerApp.base_url=/notebook/demo-vllm/demo-vllm-wb
+                              --ServerApp.quit_button=False
+                              --ServerApp.tornado_settings={"user":"admin","hub_host":"https://rhods-dashboard-redhat-ods-applications.apps.cluster-cm9hq.cm9hq.sandbox2464.opentlc.com","hub_prefix":"/projects/demo-vllm"}
+        - name: JUPYTER_IMAGE
+          value: 'image-registry.openshift-image-registry.svc:5000/redhat-ods-applications/s2i-generic-data-science-notebook:2025.1'
+        - name: PIP_CERT
+          value: /etc/pki/tls/custom-certs/ca-bundle.crt
+        - name: REQUESTS_CA_BUNDLE
+          value: /etc/pki/tls/custom-certs/ca-bundle.crt
+        - name: SSL_CERT_FILE
+          value: /etc/pki/tls/custom-certs/ca-bundle.crt
+        - name: PIPELINES_SSL_SA_CERTS
+          value: /etc/pki/tls/custom-certs/ca-bundle.crt
+        - name: GIT_SSL_CAINFO
+          value: /etc/pki/tls/custom-certs/ca-bundle.crt
+        - name: NB_PREFIX
+          value: /notebook/demo-vllm/demo-vllm-wb
+      securityContext:
+        capabilities:
+          drop:
+            - ALL
+        runAsUser: 1000890000
+        runAsNonRoot: true
+        allowPrivilegeEscalation: false
+      ports:
+        - name: notebook-port
+          containerPort: 8888
+          protocol: TCP
+      imagePullPolicy: Always
+      volumeMounts:
+        - name: demo-vllm-wb-storage
+          mountPath: /opt/app-root/src/
+        - name: shm
+          mountPath: /dev/shm
+        - name: trusted-ca
+          readOnly: true
+          mountPath: /etc/pki/tls/custom-certs/ca-bundle.crt
+          subPath: ca-bundle.crt
+        - name: kube-api-access-46q4w
+          readOnly: true
+          mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      terminationMessagePolicy: File
+      image: 'image-registry.openshift-image-registry.svc:5000/redhat-ods-applications/s2i-generic-data-science-notebook:2025.1'
+      workingDir: /opt/app-root/src
+    - resources:
+        limits:
+          cpu: 100m
+          memory: 64Mi
+        requests:
+          cpu: 100m
+          memory: 64Mi
+      readinessProbe:
+        httpGet:
+          path: /oauth/healthz
+          port: oauth-proxy
+          scheme: HTTPS
+        initialDelaySeconds: 5
+        timeoutSeconds: 1
+        periodSeconds: 5
+        successThreshold: 1
+        failureThreshold: 3
+      terminationMessagePath: /dev/termination-log
+      name: oauth-proxy
+      livenessProbe:
+        httpGet:
+          path: /oauth/healthz
+          port: oauth-proxy
+          scheme: HTTPS
+        initialDelaySeconds: 30
+        timeoutSeconds: 1
+        periodSeconds: 5
+        successThreshold: 1
+        failureThreshold: 3
+      env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+      securityContext:
+        capabilities:
+          drop:
+            - ALL
+        runAsUser: 1000890000
+        runAsNonRoot: true
+        allowPrivilegeEscalation: false
+      ports:
+        - name: oauth-proxy
+          containerPort: 8443
+          protocol: TCP
+      imagePullPolicy: Always
+      volumeMounts:
+        - name: oauth-config
+          mountPath: /etc/oauth/config
+        - name: tls-certificates
+          mountPath: /etc/tls/private
+        - name: kube-api-access-46q4w
+          readOnly: true
+          mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      terminationMessagePolicy: File
+      image: 'registry.redhat.io/openshift4/ose-oauth-proxy@sha256:4f8d66597feeb32bb18699326029f9a71a5aca4a57679d636b876377c2e95695'
+      args:
+        - '--provider=openshift'
+        - '--https-address=:8443'
+        - '--http-address='
+        - '--openshift-service-account=demo-vllm-wb'
+        - '--cookie-secret-file=/etc/oauth/config/cookie_secret'
+        - '--cookie-expire=24h0m0s'
+        - '--tls-cert=/etc/tls/private/tls.crt'
+        - '--tls-key=/etc/tls/private/tls.key'
+        - '--upstream=http://localhost:8888'
+        - '--upstream-ca=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt'
+        - '--email-domain=*'
+        - '--skip-provider-button'
+        - '--openshift-sar={"verb":"get","resource":"notebooks","resourceAPIGroup":"kubeflow.org","resourceName":"demo-vllm-wb","namespace":"$(NAMESPACE)"}'
+        - '--logout-url=https://rhods-dashboard-redhat-ods-applications.apps.cluster-cm9hq.cm9hq.sandbox2464.opentlc.com/projects/demo-vllm?notebookLogout=demo-vllm-wb'
+  hostname: demo-vllm-wb-0
+  serviceAccount: demo-vllm-wb
+  volumes:
+    - name: demo-vllm-wb-storage
+      persistentVolumeClaim:
+        claimName: demo-vllm-wb-storage
+    - name: shm
+      emptyDir:
+        medium: Memory
+    - name: trusted-ca
+      configMap:
+        name: workbench-trusted-ca-bundle
+        items:
+          - key: ca-bundle.crt
+            path: ca-bundle.crt
+        defaultMode: 420
+        optional: true
+    - name: oauth-config
+      secret:
+        secretName: demo-vllm-wb-oauth-config
+        defaultMode: 420
+    - name: tls-certificates
+      secret:
+        secretName: demo-vllm-wb-tls
+        defaultMode: 420
+    - name: kube-api-access-46q4w
+      projected:
+        sources:
+          - serviceAccountToken:
+              expirationSeconds: 3607
+              path: token
+          - configMap:
+              name: kube-root-ca.crt
+              items:
+                - key: ca.crt
+                  path: ca.crt
+          - downwardAPI:
+              items:
+                - path: namespace
+                  fieldRef:
+                    apiVersion: v1
+                    fieldPath: metadata.namespace
+          - configMap:
+              name: openshift-service-ca.crt
+              items:
+                - key: service-ca.crt
+                  path: service-ca.crt
+        defaultMode: 420
+  dnsPolicy: ClusterFirst
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoSchedule
+    - key: node.kubernetes.io/not-ready
+      operator: Exists
+      effect: NoExecute
+      tolerationSeconds: 300
+    - key: node.kubernetes.io/unreachable
+      operator: Exists
+      effect: NoExecute
+      tolerationSeconds: 300
+    - key: node.kubernetes.io/memory-pressure
+      operator: Exists
+      effect: NoSchedule
+status:
+  containerStatuses:
+    - restartCount: 0
+      started: true
+      ready: true
+      name: demo-vllm-wb
+      state:
+        running:
+          startedAt: '2025-06-12T23:11:24Z'
+      volumeMounts:
+        - name: demo-vllm-wb-storage
+          mountPath: /opt/app-root/src/
+        - name: shm
+          mountPath: /dev/shm
+        - name: trusted-ca
+          mountPath: /etc/pki/tls/custom-certs/ca-bundle.crt
+          readOnly: true
+          recursiveReadOnly: Disabled
+        - name: kube-api-access-46q4w
+          mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+          readOnly: true
+          recursiveReadOnly: Disabled
+      imageID: 'image-registry.openshift-image-registry.svc:5000/redhat-ods-applications/s2i-generic-data-science-notebook@sha256:5999547f847ca841fe067ff84e2972d2cbae598066c2418e236448e115c1728e'
+      image: 'image-registry.openshift-image-registry.svc:5000/redhat-ods-applications/s2i-generic-data-science-notebook:2025.1'
+      lastState: {}
+      containerID: 'cri-o://6f4a68a47d65d84700c1db2e2c799a85a5c1494b0426d7fa45412b5b50f2aa0a'
+    - restartCount: 0
+      started: true
+      ready: true
+      name: oauth-proxy
+      state:
+        running:
+          startedAt: '2025-06-12T23:11:25Z'
+      volumeMounts:
+        - name: oauth-config
+          mountPath: /etc/oauth/config
+        - name: tls-certificates
+          mountPath: /etc/tls/private
+        - name: kube-api-access-46q4w
+          mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+          readOnly: true
+          recursiveReadOnly: Disabled
+      imageID: 'registry.redhat.io/openshift4/ose-oauth-proxy@sha256:105307b602ac74649f868e1ea0aab7b8621ea1ecfd58ceca669dcf32f538798e'
+      image: 'registry.redhat.io/openshift4/ose-oauth-proxy@sha256:4f8d66597feeb32bb18699326029f9a71a5aca4a57679d636b876377c2e95695'
+      lastState: {}
+      containerID: 'cri-o://3ae5ea03a3f1f803f72d975fab2696b16ccba06f60e85b141b14623169f1c9df'
+  qosClass: Burstable
+  hostIPs:
+    - ip: 10.0.44.167
+  podIPs:
+    - ip: 10.130.2.97
+  podIP: 10.130.2.97
+  hostIP: 10.0.44.167
+  startTime: '2025-06-12T23:10:56Z'
+  conditions:
+    - type: PodReadyToStartContainers
+      status: 'True'
+      lastProbeTime: null
+      lastTransitionTime: '2025-06-12T23:11:26Z'
+    - type: Initialized
+      status: 'True'
+      lastProbeTime: null
+      lastTransitionTime: '2025-06-12T23:10:56Z'
+    - type: Ready
+      status: 'True'
+      lastProbeTime: null
+      lastTransitionTime: '2025-06-12T23:11:36Z'
+    - type: ContainersReady
+      status: 'True'
+      lastProbeTime: null
+      lastTransitionTime: '2025-06-12T23:11:36Z'
+    - type: PodScheduled
+      status: 'True'
+      lastProbeTime: null
+      lastTransitionTime: '2025-06-12T23:10:56Z'
+  phase: Running

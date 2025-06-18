@@ -1,0 +1,26 @@
+- name: Install Serverless Operator
+  hosts: localhost
+  vars:
+    repo_dir: "{{ lookup('env', 'REPO_DIR') | default(playbook_dir | dirname | dirname, true) }}"
+  tasks:
+    - name: Apply 08-serverless-operator kustomize manifests
+      shell: "oc apply -k {{ repo_dir }}/components/08-serverless-operator"
+      register: serverless_operator_apply
+      retries: 3
+      delay: 10
+      until: serverless_operator_apply.rc == 0
+
+    - name: Validate Serverless operator installation
+      shell: |
+        oc get csv -n openshift-serverless -o json | \
+        jq -r '.items[] | select(.metadata.name | test("^serverless-operator")) | select(.status.phase=="Succeeded") | .metadata.name'
+      register: serverless_operator_csv
+      retries: 20
+      delay: 15
+      until: serverless_operator_csv.stdout != ""
+      changed_when: false
+
+    - name: Print Serverless operator CSV name
+      debug:
+        var: serverless_operator_csv.stdout
+      when: serverless_operator_csv.stdout != ""

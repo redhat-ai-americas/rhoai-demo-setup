@@ -1,0 +1,33 @@
+- name: Scale all non-GPU MachineSets
+  hosts: localhost
+  vars:
+    # repo_dir: "{{ lookup('env', 'REPO_DIR') | default(playbook_dir + '/..', true) }}"
+    repo_dir: "{{ lookup('env', 'REPO_DIR') | default(playbook_dir | dirname | dirname, true) }}"
+  tasks:
+    - name: Scale all non-GPU MachineSets to 3 replicas
+      shell: |
+        oc get machineset -A -o jsonpath='{range .items[*]}{.metadata.namespace}{" "}{.metadata.name}{"\n"}{end}' | \
+        grep -vi gpu | while read ns ms; do
+          oc scale machineset "$ms" -n "$ns" --replicas=3
+        done
+      register: scale_non_gpu_machineset
+
+    - name: Print non-GPU MachineSet scaling result
+      debug:
+        msg: "{{ scale_non_gpu_machineset.stdout }}"
+
+    - name: Wait for all non-GPU MachineSets to have 3 ready replicas
+      shell: |
+        oc get machineset -A -o jsonpath='{range .items[*]}{.metadata.namespace}{" "}{.metadata.name}{" "}{.status.replicas}{" "}{.status.readyReplicas}{"\n"}{end}' | \
+        grep -vi gpu
+      register: machineset_status
+      retries: 30
+      delay: 20
+      until: >
+        machineset_status.stdout_lines | select('match', '.*\s3\s3$') | length ==
+        (machineset_status.stdout_lines | length)
+      changed_when: false
+
+    - name: Print all non-GPU MachineSets are ready
+      debug:
+        msg: "All non-GPU MachineSets have 3 ready replicas."

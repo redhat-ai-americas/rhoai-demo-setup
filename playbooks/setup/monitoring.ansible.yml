@@ -1,0 +1,11 @@
+- name: Configure Prometheus Metrics for OpenShift AI
+  hosts: localhost
+  vars:
+    repo_dir: "{{ lookup('env', 'REPO_DIR') | default(playbook_dir | dirname | dirname, true) }}"
+  tasks:
+    - name: Apply 13-monitoring kustomize manifests
+      shell: "oc apply -k {{ repo_dir }}/components/13-monitoring"
+      register: monitoring_apply
+      retries: 3
+      delay: 10
+      until: monitoring_apply.rc == 0

@@ -1,0 +1,39 @@
+- name: Create admin user in OpenShift using htpasswd
+  hosts: localhost
+  gather_facts: no
+  vars:
+    repo_dir: "{{ lookup('env', 'REPO_DIR') | default(playbook_dir | dirname | dirname, true) }}"
+  tasks:
+    - name: Apply htpasswd configuration using kustomize
+      shell: "oc apply -k {{ repo_dir }}/components/01-admin-user"
+      register: admin_user_apply
+      retries: 3
+      delay: 10
+      until: admin_user_apply.rc == 0
+
+    - name: Wait for OAuth to be ready
+      retries: 20
+      delay: 10
+      shell: oc get oauth/cluster -o jsonpath="{.spec.identityProviders[?(@.name=='htpasswd_provider')]}"
+      register: oauth_status
+      until: oauth_status.stdout != ""
+      changed_when: false
+
+    - name: Add cluster-admin role to admin user
+      command: oc adm policy add-cluster-role-to-user cluster-admin admin
+
+    - name: Validate user login (simulate login)
+      shell: >
+        oc login -u admin -p admin123 --insecure-skip-tls-verify
+      register: login_attempt
+      retries: 30
+      delay: 20
+      until: "'Login successful' in login_attempt.stdout"
+      failed_when: "'Login successful' not in login_attempt.stdout"
+
+    - name: Confirm login worked
+      debug:
+        msg: |
+          OpenShift admin user created.
+          Username: admin
+          Password: admin123

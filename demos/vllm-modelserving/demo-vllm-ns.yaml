@@ -1,0 +1,9 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo-vllm
+  annotations:
+    openshift.io/description: |
+      Project to demo vLLM model serving capabilities.
+    openshift.io/display-name: demo-vllm

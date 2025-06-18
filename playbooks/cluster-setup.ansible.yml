@@ -1,0 +1,5 @@
+- import_playbook: setup/prereqs.ansible.yml
+- import_playbook: setup/admin-user.ansible.yml
+- import_playbook: setup/scale-cpumachineset.ansible.yml
+- import_playbook: gpu-setup.ansible.yml
+- import_playbook: rhoai-setup.ansible.yml

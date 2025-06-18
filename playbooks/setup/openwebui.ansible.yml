@@ -1,0 +1,19 @@
+- name: Configure OpenWeb UI on OpenShift
+  hosts: localhost
+  vars:
+    repo_dir: "{{ lookup('env', 'REPO_DIR') | default(playbook_dir + '/..', true) }}"
+  tasks:
+    - name: Apply 16-openwebui kustomize manifests
+      shell: "oc apply -k {{ repo_dir }}/components/16-openwebui"
+      register: openwebui_apply
+      retries: 3
+      delay: 10
+      until: openwebui_apply.rc == 0
+
+    - name: Create a secret for WEBUI_SECRET_KEY
+      shell: |
+        oc create secret generic openwebui-secret --from-literal=secret-key=$(openssl rand -hex 32) -n openwebui || true
+      register: webui_secret_create
+      retries: 5
+      delay: 10
+      until: webui_secret_create.rc == 0

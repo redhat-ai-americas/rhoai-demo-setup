@@ -1,0 +1,77 @@
+- name: Install OpenShift AI Operator
+  hosts: localhost
+  vars:
+    repo_dir: "{{ lookup('env', 'REPO_DIR') | default(playbook_dir | dirname | dirname, true) }}"
+  tasks:
+    - name: Apply 10-rhoai-operator kustomize manifests
+      shell: "oc apply -k {{ repo_dir }}/components/10-rhoai-operator"
+      register: rhoai_operator_apply
+      retries: 3
+      delay: 10
+      until: rhoai_operator_apply.rc == 0
+
+    - name: Validate OpenShift AI operator installation
+      shell: |
+        oc get csv -n redhat-ods-operator -o json | \
+        jq -r '.items[] | select(.metadata.name | test("^rhods-operator")) | select(.status.phase=="Succeeded") | .metadata.name'
+      register: rhoai_operator_csv
+      retries: 20
+      delay: 15
+      until: rhoai_operator_csv.stdout != ""
+      changed_when: false
+
+    - name: Print OpenShift AI operator CSV name
+      debug:
+        var: rhoai_operator_csv.stdout
+      when: rhoai_operator_csv.stdout != ""
+
+    - name: Sleep for 20 seconds before next task
+      ansible.builtin.pause:
+        seconds: 20
+
+    - name: Wait for DataScienceCluster default-dsc to be Ready
+      shell: |
+        oc get DataScienceCluster default-dsc -n redhat-ods-operator -o json
+      register: dsc_resource
+      retries: 30
+      delay: 15
+      until: >-
+        {{
+          (dsc_resource.stdout | from_json).status.conditions
+          | selectattr('type', 'equalto', 'Ready')
+          | selectattr('status', 'equalto', 'True')
+          | list | length > 0
+        }}
+      changed_when: false
+
+    - name: Assert DataScienceCluster default-dsc Ready status
+      assert:
+        that:
+          - (dsc_resource.stdout | from_json).status.conditions
+            | selectattr('type', 'equalto', 'Ready')
+            | selectattr('status', 'equalto', 'True')
+            | list | length > 0
+        fail_msg: "DataScienceCluster default-dsc is not in Ready status."
+        success_msg: "DataScienceCluster default-dsc is Ready."
+
+    - name: Apply RHOAI accelerator profile
+      shell: |
+        oc apply -f {{ repo_dir }}/components/10-rhoai-operator/rhoai-nvidia-profile.yaml
+      register: rhoai_accelerator_apply
+      retries: 3
+      delay: 10
+      until: rhoai_accelerator_apply.rc == 0
+
+    - name: Validate RHOAI accelerator profile application
+      shell: |
+        oc get acceleratorprofile nvidia-gpu-profile -n redhat-ods-applications
+      register: rhoai_accelerator_profile
+      retries: 20
+      delay: 15
+      until: rhoai_accelerator_profile.stdout != ""
+      changed_when: false
+
+    - name: Print RHOAI accelerator profile details
+      debug:
+        var: rhoai_accelerator_profile.stdout
+      when: rhoai_accelerator_profile.stdout != ""

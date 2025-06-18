@@ -1,0 +1,11 @@
+- name: Configure AnythingLLM on OpenShift AI
+  hosts: localhost
+  vars:
+    repo_dir: "{{ lookup('env', 'REPO_DIR') | default(playbook_dir | dirname | dirname, true) }}"
+  tasks:
+    - name: Apply 12-anythingllm kustomize manifests
+      shell: "oc apply -k {{ repo_dir }}/components/12-anythingllm"
+      register: anythingllm_apply
+      retries: 3
+      delay: 10
+      until: anythingllm_apply.rc == 0

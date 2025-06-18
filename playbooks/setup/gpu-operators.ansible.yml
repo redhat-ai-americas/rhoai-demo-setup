@@ -1,0 +1,41 @@
+- name: Install Node Feature Discovery and NVIDIA GPU Operators
+  hosts: localhost
+  vars:
+    repo_dir: "{{ lookup('env', 'REPO_DIR') | default(playbook_dir | dirname | dirname, true) }}"
+  tasks:
+    - name: Apply 03-gpu-operator kustomize manifests
+      shell: "oc apply -k {{ repo_dir }}/components/03-gpu-operators"
+      register: gpu_operators_apply
+      retries: 3
+      delay: 10
+      until: gpu_operators_apply.rc == 0
+
+    - name: Validate Node Feature Discovery operator installation
+      shell: |
+        oc get csv -n openshift-nfd -o json | \
+        jq -r '.items[] | select(.metadata.name | test("^nfd")) | select(.status.phase=="Succeeded") | .metadata.name'
+      register: nfd_operator_csv
+      retries: 20
+      delay: 15
+      until: nfd_operator_csv.stdout != ""
+      changed_when: false
+
+    - name: Print Node Feature Discovery operator CSV name
+      debug:
+        var: nfd_operator_csv.stdout
+      when: nfd_operator_csv.stdout != ""
+
+    - name: Validate NVIDIA GPU Operator installation
+      shell: |
+        oc get csv -n nvidia-gpu-operator -o json | \
+        jq -r '.items[] | select(.metadata.name | test("^gpu-operator-certified")) | select(.status.phase=="Succeeded") | .metadata.name'
+      register: nvidia_gpu_operator_csv
+      retries: 20
+      delay: 15
+      until: nvidia_gpu_operator_csv.stdout != ""
+      changed_when: false
+
+    - name: Print NVIDIA GPU Operator CSV name
+      debug:
+        var: nvidia_gpu_operator_csv.stdout
+      when: nvidia_gpu_operator_csv.stdout != ""

@@ -1,0 +1,40 @@
+apiVersion: workspace.devfile.io/v1alpha2
+kind: DevWorkspaceTemplate
+metadata:
+  annotations:
+    controller.devfile.io/allow-import-from: '*'
+    web-terminal.redhat.com/unmanaged-state: 'true'
+  name: web-terminal-tooling
+  namespace: openshift-operators
+  labels:
+    console.openshift.io/terminal: 'true'
+spec:
+  components:
+    - container:
+        args:
+          - "/bin/bash"
+          - "-c"
+          - |
+            #!/bin/bash
+
+            echo "
+            GIT_REPO=https://github.com/hemang-rh/demo-setup.git
+
+            [ -e ~/demo-setup ] || git clone \${GIT_REPO}
+            [ -e ~/demo-setup ] && cd ~/demo-setup
+
+            " >> /home/user/.bashrc
+
+            . /home/user/.bashrc
+
+            sleep infinity  # just in case
+
+        cpuLimit: 400m
+        cpuRequest: 100m
+        image: ghcr.io/redhat-na-ssa/web-terminal-tooling:latest
+        # image: registry.redhat.io/web-terminal/web-terminal-tooling-rhel9@sha256:fec15ce394b043ec1e657746b26547c85cca75ac1fd9f5856a80ebe130319091
+        memoryLimit: 512Mi
+        memoryRequest: 128Mi
+        mountSources: false
+        sourceMapping: /projects
+      name: web-terminal-tooling

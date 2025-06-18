@@ -1,0 +1,11 @@
+apiVersion: console.openshift.io/v1
+kind: ConsoleLink
+metadata:
+  name: application-menu-rh-developer-blog
+spec:
+  href: 'https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2-latest/'
+  location: ApplicationMenu
+  text: Red Hat OpenShift AI Documentation
+  applicationMenu:
+    section: Documentation
+    imageURL: https://i.ibb.co/tM8srwX/logo-redhat.png

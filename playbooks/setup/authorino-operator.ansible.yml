@@ -1,0 +1,26 @@
+- name: Install Authoroino Operator
+  hosts: localhost
+  vars:
+    repo_dir: "{{ lookup('env', 'REPO_DIR') | default(playbook_dir | dirname | dirname, true) }}"
+  tasks:
+    - name: Apply 07-authorino-operator kustomize manifests
+      shell: "oc apply -k {{ repo_dir }}/components/07-authorino-operator"
+      register: authorino_operator_apply
+      retries: 3
+      delay: 10
+      until: authorino_operator_apply.rc == 0
+
+    - name: Validate Authorino operator installation
+      shell: |
+        oc get csv -n openshift-operators -o json | \
+        jq -r '.items[] | select(.metadata.name | test("^authorino-operator")) | select(.status.phase=="Succeeded") | .metadata.name'
+      register: authorino_operator_csv
+      retries: 20
+      delay: 15
+      until: authorino_operator_csv.stdout != ""
+      changed_when: false
+
+    - name: Print Authorino operator CSV name
+      debug:
+        var: authorino_operator_csv.stdout
+      when: authorino_operator_csv.stdout != ""

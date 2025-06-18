@@ -1,0 +1,26 @@
+- name: Install ServiceMesh Operator
+  hosts: localhost
+  vars:
+    repo_dir: "{{ lookup('env', 'REPO_DIR') | default(playbook_dir | dirname | dirname, true) }}"
+  tasks:
+    - name: Apply 09-servicemesh-operator kustomize manifests
+      shell: "oc apply -k {{ repo_dir }}/components/09-servicemesh-operator"
+      register: servicemesh_operator_apply
+      retries: 3
+      delay: 10
+      until: servicemesh_operator_apply.rc == 0
+
+    - name: Validate ServiceMesh operator installation
+      shell: |
+        oc get csv -n openshift-operators -o json | \
+        jq -r '.items[] | select(.metadata.name | test("^servicemeshoperator")) | select(.status.phase=="Succeeded") | .metadata.name'
+      register: servicemesh_operator_csv
+      retries: 20
+      delay: 15
+      until: servicemesh_operator_csv.stdout != ""
+      changed_when: false
+
+    - name: Print ServiceMesh operator CSV name
+      debug:
+        var: servicemesh_operator_csv.stdout
+      when: servicemesh_operator_csv.stdout != ""

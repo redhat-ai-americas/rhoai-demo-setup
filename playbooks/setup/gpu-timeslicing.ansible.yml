@@ -1,0 +1,34 @@
+- name: Configure NVIDIA GPU timeslicing
+  hosts: localhost
+  vars:
+    repo_dir: "{{ lookup('env', 'REPO_DIR') | default(playbook_dir | dirname | dirname, true) }}"
+    gpu_worker_labels: "node-role.kubernetes.io/gpu,node-role.kubernetes.io/worker,nvidia.com/gpu.replicas=8,nvidia.com/gpu.sharing-strategy=time-slicing"
+  tasks:
+    - name: Apply 05-gpu-timeslicing kustomize manifests
+      shell: "oc apply -k {{ repo_dir }}/components/05-gpu-timeslicing"
+      register: gpu_timeslicing_apply
+      retries: 3
+      delay: 10
+      until: gpu_timeslicing_apply.rc == 0
+
+    - name: Get all GPU worker nodes
+      shell: |
+        oc get nodes -l node-role.kubernetes.io/gpu,node-role.kubernetes.io/worker -o name
+      register: gpu_worker_nodes
+
+    - name: Get GPU worker nodes with required labels
+      shell: |
+        oc get nodes -l {{ gpu_worker_labels }} -o name
+      register: gpu_worker_nodes_with_labels
+      retries: 30
+      delay: 15
+      until: gpu_worker_nodes_with_labels.stdout_lines | length > 0
+      changed_when: false
+
+    - name: Verify all GPU worker nodes have required labels
+      assert:
+        that:
+          - (gpu_worker_nodes_with_labels.stdout_lines | sort) == (gpu_worker_nodes.stdout_lines | sort)
+        fail_msg: "Not all GPU worker nodes have both nvidia.com/gpu.replicas=8 and nvidia.com/gpu.sharing-strategy=time-slicing labels."
+        success_msg: |
+          All GPU worker nodes have the required labels: {{ gpu_worker_labels }}

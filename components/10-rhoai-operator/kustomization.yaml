@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - rhoai-operator-group.yaml
+  - rhoai-operator-ns.yaml
+  - rhoai-operator-subscription.yaml
+  - rhoai-operator-dsc.yaml
+  # - rhoai-nvidia-profile.yaml
+  - telemetry-cm.yaml

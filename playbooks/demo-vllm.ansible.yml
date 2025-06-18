@@ -1,0 +1,76 @@
+- name: Demo VLLM Model Serving
+  hosts: localhost
+  vars:
+    repo_dir: "{{ lookup('env', 'REPO_DIR') | default(playbook_dir | dirname, true) }}"
+  tasks:
+    - name: Create demo-vllm namespace
+      shell: "oc apply -f {{ repo_dir }}/demos/vllm-modelserving/demo-vllm-ns.yaml"
+      register: vllm_modelserving_apply
+      retries: 3
+      delay: 10
+      until: vllm_modelserving_apply.rc == 0
+
+    - name: Validate that demo-vllm namespace got created
+      shell: "oc get namespace demo-vllm --no-headers"
+      register: demo_vllm_ns
+      retries: 5
+      delay: 5
+      until: demo_vllm_ns.rc == 0
+      changed_when: false
+
+    - name: Create minio and dataconnections
+      shell: "oc apply -f {{ repo_dir }}/demos/vllm-modelserving/setup-minio.yaml"
+      register: minio_apply
+      retries: 3
+      delay: 10
+      until: minio_apply.rc == 0
+
+    - name: Wait for minio pod to be running and ready
+      shell: |
+        oc get pods -n demo-vllm -o json | jq -r '.items[] | select(.metadata.name | test("^minio-")) | select(.status.phase=="Running") | select(.status.containerStatuses[0].ready==true) | .metadata.name'
+      register: minio_named_pod_ready
+      retries: 20
+      delay: 15
+      until: minio_named_pod_ready.stdout != ""
+      changed_when: false
+
+    - name: Print minio pod name
+      debug:
+        msg: "minio pod is running and ready: {{ minio_named_pod_ready.stdout }}"
+      when: minio_named_pod_ready.stdout != ""
+
+    - name: Check if any GPU node has node.kubernetes.io/unschedulable taint
+      shell: |
+        oc get nodes -l node-role.kubernetes.io/gpu -o json | jq -r '.items[] | select(.spec.taints != null) | "\(.metadata.name) \(.spec.taints[]?.key)"' | grep node.kubernetes.io/unschedulable || true
+      register: gpu_node_unschedulable_taint
+
+    - name: Remove node.kubernetes.io/unschedulable taint from GPU nodes if present
+      shell: |
+        for node in $(echo "{{ gpu_node_unschedulable_taint.stdout_lines | map('split', ' ') | map('first') | unique | join(' ') }}"); do
+          oc adm uncordon "$node"
+        done
+      when: gpu_node_unschedulable_taint.stdout != ""
+
+    - name: Create servingruntime and inferenceservice demo-vllm namespace
+      shell: |
+        oc project demo-vllm
+        oc apply -f {{ repo_dir }}/demos/vllm-modelserving/vllm-servingruntime.yaml
+        oc apply -f {{ repo_dir }}/demos/vllm-modelserving/inferenceservice.yaml
+      register: vllm_servingruntime_apply
+      retries: 3
+      delay: 10
+      until: vllm_servingruntime_apply.rc == 0
+
+    - name: Wait for pod serving granite model to be running and ready in demo-vllm namespace
+      shell: |
+        oc get pods -n demo-vllm -o json | jq -r '.items[] | select(.metadata.name | test("^granite-")) | select(.status.phase=="Running") | select(.status.containerStatuses[0].ready==true) | .metadata.name'
+      register: granite_model_pod_ready
+      retries: 40
+      delay: 20
+      until: granite_model_pod_ready.stdout != ""
+      changed_when: false
+
+    - name: Print granite-model pod status
+      debug:
+        msg: "Pod starting with granite-model is running and ready: {{ granite_model_pod_ready.stdout }}"
+      when: granite_model_pod_ready.stdout != ""

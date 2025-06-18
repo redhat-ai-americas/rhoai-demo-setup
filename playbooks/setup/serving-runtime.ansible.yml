@@ -1,0 +1,11 @@
+- name: Configure Serving Runtime on OpenShift AI
+  hosts: localhost
+  vars:
+    repo_dir: "{{ lookup('env', 'REPO_DIR') | default(playbook_dir | dirname | dirname, true) }}"
+  tasks:
+    - name: Apply 11-serving-runtime kustomize manifests
+      shell: "oc apply -k {{ repo_dir }}/components/11-serving-runtime"
+      register: serving_runtime_apply
+      retries: 3
+      delay: 10
+      until: serving_runtime_apply.rc == 0

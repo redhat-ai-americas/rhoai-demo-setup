@@ -1,0 +1,39 @@
+- name: Install NVIDIA DCGM (Data Center GPU Manager) Dasbhboard
+  hosts: localhost
+  vars:
+    repo_dir: "{{ lookup('env', 'REPO_DIR') | default(playbook_dir | dirname | dirname, true) }}"
+  tasks:
+    - name: Apply 04-gpu-dashboard kustomize manifests
+      shell: "oc apply -k {{ repo_dir }}/components/04-gpu-dashboard"
+      register: gpu_dashboard_apply
+      retries: 3
+      delay: 10
+      until: gpu_dashboard_apply.rc == 0
+
+    - name: Validate nvidia-dcgm-exporter ConfigMap exists in nvidia-gpu-operator project
+      shell: |
+        oc get configmap nvidia-dcgm-exporter -n nvidia-gpu-operator --no-headers
+      register: dcgm_exporter_cm
+      retries: 10
+      delay: 10
+      until: dcgm_exporter_cm.rc == 0
+      changed_when: false
+
+    - name: Print ConfigMap validation result
+      debug:
+        msg: "nvidia-dcgm-exporter ConfigMap exists in nvidia-gpu-operator project."
+      when: dcgm_exporter_cm.rc == 0
+
+    - name: Validate nvidia-dcgm-exporter-dashboard ConfigMap exists in openshift-config-managed namespace
+      shell: |
+        oc get configmap nvidia-dcgm-exporter-dashboard -n openshift-config-managed --no-headers
+      register: dcgm_dashboard_cm
+      retries: 10
+      delay: 10
+      until: dcgm_dashboard_cm.rc == 0
+      changed_when: false
+
+    - name: Print ConfigMap validation result
+      debug:
+        msg: "nvidia-dcgm-exporter-dashboard ConfigMap exists in openshift-config-managed namespace."
+      when: dcgm_dashboard_cm.rc == 0

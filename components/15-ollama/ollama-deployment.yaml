@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama
+  namespace: ollama
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ollama
+  template:
+    metadata:
+      labels:
+        app: ollama
+    spec:
+      containers:
+        - name: ollama
+          image: ghcr.io/redhat-na-ssa/ollama:latest
+          imagePullPolicy: Always
+          command:
+          - /bin/sh
+          - -c
+          - |
+            #/bin/sh
+
+            pull_model(){
+              OLLAMA_HOST=localhost:11434
+              MODEL_NAME=granite3-dense:8b
+
+              until curl -sL ${OLLAMA_HOST}/api/pull -d '{"name": "'${MODEL_NAME}'"}'
+              do
+                sleep 6
+
+              done
+            }
+
+            serve_ollama(){
+              /usr/local/bin/ollama serve
+            }
+
+            pull_model &
+            serve_ollama
+          ports:
+            - containerPort: 11434
+              protocol: TCP
+              resources:
+                limits:
+                  memory: 10Gi
+          volumeMounts:
+            - name: ollama-storage
+              mountPath: /ollama
+          resources:
+            limits:
+              memory: 10Gi
+              nvidia.com/gpu: "1"
+            requests:
+              nvidia.com/gpu: "1"
+      volumes:
+        - name: ollama-storage
+          persistentVolumeClaim:
+            claimName: ollama-pvc

@@ -1,0 +1,93 @@
+- name: Auto-clone MachineSet for GPU node deployment
+  hosts: localhost
+  gather_facts: no
+  vars:
+    gpu_instance_type: g6e.16xlarge
+    gpu_node_label: "node-role.kubernetes.io/gpu"
+    namespace: openshift-machine-api
+
+  tasks:
+    - name: Get all MachineSets
+      shell: oc get machineset -n {{ namespace }} -o json
+      register: machinesets_json
+
+    - name: Select first MachineSet as source
+      set_fact:
+        source_machineset: "{{ machinesets_json.stdout | from_json | json_query('items[0].metadata.name') }}"
+
+    - name: Define new GPU MachineSet name
+      set_fact:
+        gpu_machineset: "{{ source_machineset | regex_replace('worker', 'gpu') }}"
+
+    - name: Get source MachineSet YAML
+      command: >
+        oc get machineset -n {{ namespace }} {{ source_machineset }} -o yaml
+      register: machineset_yaml_raw
+
+    - name: Modify MachineSet YAML for GPU node
+      copy:
+        content: "{{ machineset_yaml_raw.stdout
+          | from_yaml
+          | combine({
+          'metadata': {
+          'name': gpu_machineset,
+          'labels': {
+          'machine.openshift.io/cluster-api-machineset': gpu_machineset,
+          'cluster-api/accelerator': 'nvidia-gpu'
+          }
+          },
+          'spec': {
+          'replicas': 1,
+          'selector': {
+          'matchLabels': {
+          'machine.openshift.io/cluster-api-machineset': gpu_machineset
+          }
+          },
+          'template': {
+          'metadata': {
+          'labels': {
+          'machine.openshift.io/cluster-api-machineset': gpu_machineset,
+          (gpu_node_label): ''
+          }
+          },
+          'spec': {
+          'metadata': {
+          'labels': {
+          (gpu_node_label): '',
+          'cluster-api/accelerator': 'nvidia-gpu'
+          }
+          },
+          'providerSpec': {
+          'value': machineset_yaml_raw.stdout | from_yaml
+          | json_query('spec.template.spec.providerSpec.value')
+          | combine({
+          'instanceType': gpu_instance_type
+          })
+          }
+          }
+          }
+          }
+          }, recursive=True)
+          | to_nice_yaml }}"
+        dest: /tmp/gpu-machineset.yaml
+
+    - name: Apply GPU MachineSet
+      command: oc apply -f /tmp/gpu-machineset.yaml
+
+    - name: Wait for GPU node to join cluster
+      retries: 20
+      delay: 30
+      shell: >
+        oc get nodes -l {{ gpu_node_label }} --no-headers | grep -i Ready | wc -l
+      register: gpu_node_count
+      until: gpu_node_count.stdout | int >= 1
+      changed_when: false
+
+    - name: Display GPU node info
+      shell: oc get nodes -l {{ gpu_node_label }} -o wide
+      register: gpu_node_output
+
+    - name: Show final result
+      debug:
+        msg: "{{ gpu_node_output.stdout }}"
+# TODO: Add task to taint the GPU node

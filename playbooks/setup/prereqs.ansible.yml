@@ -1,0 +1,27 @@
+- name: Install OpenShift Prerequisite Components
+  hosts: localhost
+  vars:
+    # repo_dir: "{{ lookup('env', 'REPO_DIR') | default(playbook_dir + '/..', true) }}"
+    repo_dir: "{{ lookup('env', 'REPO_DIR') | default(playbook_dir | dirname | dirname, true) }}"
+  tasks:
+    - name: Apply 00-prereqs kustomize manifests
+      shell: "oc apply -k {{ repo_dir }}/components/00-prereqs"
+      register: prereqs_apply
+      retries: 3
+      delay: 10
+      until: prereqs_apply.rc == 0
+
+    - name: Wait for Web Terminal operator to be installed
+      shell: |
+        oc get csv -n openshift-operators -o json | \
+        jq -r '.items[] | select(.metadata.name | test("^web-terminal")) | select(.status.phase=="Succeeded") | .metadata.name'
+      register: web_terminal_csv
+      retries: 12
+      delay: 10
+      until: web_terminal_csv.stdout != ""
+      changed_when: false
+
+    - name: Print Web Terminal operator CSV name
+      debug:
+        var: web_terminal_csv.stdout
+      when: web_terminal_csv.stdout != ""
