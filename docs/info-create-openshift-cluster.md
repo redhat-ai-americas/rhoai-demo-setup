@@ -1,4 +1,4 @@
-## Create OpenShift cluster for bootcamp
+## Create OpenShift cluster
 
 <p align="center">
 <a href="/README.md">Back</a>
@@ -14,7 +14,7 @@ Your cluster must have at least **2 worker nodes with at least 8 CPUs and 32 GiB
 
   - Activity = `Practice/Enablement`
   - Purpose = `Conduct internal training/enablement`
-  - OpenShift Version = `4.16`
+  - OpenShift Version = `Choose latest version`
   - Control Plane Instance Type = `m6a.4xlarge`
 
 ![](create-openshift-cluster.gif)
