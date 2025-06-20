@@ -75,3 +75,11 @@
       debug:
         var: rhoai_accelerator_profile.stdout
       when: rhoai_accelerator_profile.stdout != ""
+
+    - name: Apply telemetry configuration
+      shell: |
+        oc apply -f {{ repo_dir }}/components/10-rhoai-operator/telemetry-cm.yaml
+      register: telemetry_cm_apply
+      retries: 3
+      delay: 10
+      until: telemetry_cm_apply.rc == 0
