@@ -1,5 +1,40 @@
 # rhoai-demo-setup
 
+## Summary
+
+This repository provides **automated setup and configuration tools for deploying Red Hat OpenShift AI (RHOAI) on OpenShift clusters**. It's designed to streamline the process of setting up a complete AI/ML platform with GPU support and related infrastructure.
+
+### Key Purposes:
+
+1. **Automated RHOAI Deployment**: Uses Ansible playbooks to automate the installation and configuration of Red Hat OpenShift AI and all its dependencies on OpenShift clusters.
+
+2. **GPU-Enabled AI Infrastructure**: Sets up GPU nodes with NVIDIA operators, drivers, and monitoring dashboards to support AI/ML workloads that require GPU acceleration.
+
+3. **Complete Platform Setup**: Installs and configures supporting components including:
+
+   - Serverless and Service Mesh operators
+   - Authentication and authorization (Authorino)
+   - Object storage (MinIO)
+   - Monitoring and observability tools
+   - Web terminals and developer tooling
+
+4. **Demo Capabilities**: Provides ready-to-use demos showcasing RHOAI capabilities, particularly model serving with vLLM.
+
+### Main Components:
+
+- **components**: Kustomize manifests for 16 different cluster components (prerequisites, GPU operators, RHOAI, monitoring, etc.)
+- **playbooks**: Ansible automation scripts for full cluster setup, individual component installation, and demos
+- **demos**: Sample applications and inference examples
+- **docs**: Documentation and setup guides
+
+### Primary Use Cases:
+
+- **Full Cluster Setup**: One-command deployment of a complete RHOAI environment
+- **Individual Component Setup**: Granular installation of specific components (GPU setup, MinIO, etc.)
+- **AI/ML Demonstrations**: Pre-configured demos for model serving and inference
+
+This repository essentially serves as a "one-stop-shop" for getting a production-ready AI/ML platform running on OpenShift with minimal manual configuration required.
+
 ## Pre-Requisites
 
 Before using this repository, ensure you have the following:
@@ -35,19 +70,6 @@ Before using this repository, ensure you have the following:
   ```sh
   oc version
   ```
-
----
-
-## Repository Layout
-
-- **components/**  
-  Contains kustomize manifests and configuration files for deploying cluster components such as cluster prerequisites, admin user, GPU operators, RHOAI operators etc.
-
-- **demos/**  
-  Demo files for running inference and showcasing RHOAI capabilites.
-
-- **playbooks/**  
-  Ansible playbooks for automating the setup and configuration of the Openshift cluster with RHOAI components, including user creation, prerequisites, GPU setup, Serverless and Servicemesh and other orchestration scripts.
 
 ---
 
