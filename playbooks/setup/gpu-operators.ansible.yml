@@ -39,3 +39,25 @@
       debug:
         var: nvidia_gpu_operator_csv.stdout
       when: nvidia_gpu_operator_csv.stdout != ""
+
+    - name: Apply NVIDIA GPU cluster policy
+      shell: "oc apply -f {{ repo_dir }}/components/03-gpu-operators/nvidia-gpu-clusterpolicy.yaml"
+      register: cluster_policy_apply
+      retries: 3
+      delay: 10
+      until: cluster_policy_apply.rc == 0
+
+    - name: Validate GPU cluster policy creation
+      shell: |
+        oc get clusterpolicy gpu-cluster-policy -o json | \
+        jq -r '.status.state // "NotReady"'
+      register: cluster_policy_status
+      retries: 10
+      delay: 30
+      until: cluster_policy_status.stdout == "ready"
+      changed_when: false
+
+    - name: Print GPU cluster policy status
+      debug:
+        var: cluster_policy_status.stdout
+      when: cluster_policy_status.stdout != ""
