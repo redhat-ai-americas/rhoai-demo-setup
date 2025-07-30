@@ -3,11 +3,32 @@
   vars:
     repo_dir: "{{ lookup('env', 'REPO_DIR') | default(playbook_dir | dirname | dirname, true) }}"
   tasks:
+    - name: Get GPU nodes with nvidia.com/gpu.present=true label
+      shell: |
+        oc get nodes -l nvidia.com/gpu.present=true --no-headers | wc -l
+      register: gpu_node_count
+      changed_when: false
+
+    - name: Print total number of GPU nodes that will be tainted
+      debug:
+        msg: "Total GPU nodes with nvidia.com/gpu.present=true label: {{ gpu_node_count.stdout }}"
+
+    - name: List GPU nodes that will be tainted
+      shell: |
+        oc get nodes -l nvidia.com/gpu.present=true -o jsonpath='{.items[*].metadata.name}'
+      register: gpu_node_names
+      changed_when: false
+
+    - name: Print GPU node names
+      debug:
+        msg: "GPU nodes to be tainted: {{ gpu_node_names.stdout.split() }}"
+      when: gpu_node_names.stdout != ""
+
     - name: Taint nodes
       shell: |
-        oc adm taint node -l node-role.kubernetes.io/gpu nvidia.com/gpu=:NoSchedule --overwrite
-        oc adm drain -l node-role.kubernetes.io/gpu --ignore-daemonsets --delete-emptydir-data
-        oc adm uncordon -l node-role.kubernetes.io/gpu-headers
+        oc adm taint node -l nvidia.com/gpu.present=true nvidia.com/gpu=:NoSchedule --overwrite
+        oc adm drain -l nvidia.com/gpu.present=true --ignore-daemonsets --delete-emptydir-data
+        oc adm uncordon -l nvidia.com/gpu.present=true-headers
       register: taint_gpu_nodes
       retries: 10
       delay: 10
@@ -16,7 +37,7 @@
 
     - name: Verify GPU nodes are tainted
       shell: |
-        oc get nodes -l node-role.kubernetes.io/gpu -o jsonpath='{.items[*].spec.taints}'
+        oc get nodes -l nvidia.com/gpu.present=true -o jsonpath='{.items[*].spec.taints}'
       register: gpu_node_taints
       retries: 5
       delay: 5
@@ -30,7 +51,7 @@
 
     - name: Uncordon all GPU nodes
       shell: |
-        for node in $(oc get nodes -l node-role.kubernetes.io/gpu -o name | awk -F/ '{print $2}'); do
+        for node in $(oc get nodes -l nvidia.com/gpu.present=true -o name | awk -F/ '{print $2}'); do
           oc adm uncordon "$node"
         done
       register: uncordon_gpu_nodes
@@ -41,7 +62,7 @@
 
     - name: Verify GPU nodes are ready
       shell: |
-        oc get nodes -l node-role.kubernetes.io/gpu -o jsonpath='{.items[*].status.conditions[?(@.type=="Ready")].status}'
+        oc get nodes -l nvidia.com/gpu.present=true -o jsonpath='{.items[*].status.conditions[?(@.type=="Ready")].status}'
       register: gpu_node_ready
       retries: 5
       delay: 5
