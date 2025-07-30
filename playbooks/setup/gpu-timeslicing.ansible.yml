@@ -2,7 +2,7 @@
   hosts: localhost
   vars:
     repo_dir: "{{ lookup('env', 'REPO_DIR') | default(playbook_dir | dirname | dirname, true) }}"
-    gpu_worker_labels: "node-role.kubernetes.io/gpu,node-role.kubernetes.io/worker,nvidia.com/gpu.replicas=8,nvidia.com/gpu.sharing-strategy=time-slicing"
+    gpu_worker_labels: "nvidia.com/gpu.present=true,node-role.kubernetes.io/worker,nvidia.com/gpu.replicas=8,nvidia.com/gpu.sharing-strategy=time-slicing"
   tasks:
     - name: Apply 05-gpu-timeslicing kustomize manifests
       shell: "oc apply -k {{ repo_dir }}/components/05-gpu-timeslicing"
@@ -13,7 +13,7 @@
 
     - name: Get all GPU worker nodes
       shell: |
-        oc get nodes -l node-role.kubernetes.io/gpu,node-role.kubernetes.io/worker -o name
+        oc get nodes -l nvidia.com/gpu.present=true,node-role.kubernetes.io/worker -o name
       register: gpu_worker_nodes
 
     - name: Get GPU worker nodes with required labels
