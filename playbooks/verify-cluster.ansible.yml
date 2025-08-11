@@ -1,0 +1,459 @@
+- name: Verify OpenShift cluster prerequisites for RHOAI
+  hosts: localhost
+  gather_facts: false
+  vars:
+    # Version / platform
+    min_ocp_version: "4.16.0"         # set to "" to disable version gating
+
+    # Optional readiness checks (booleans)
+    require_default_sc: true           # fail if no default StorageClass
+    check_ingress: true                # default IngressController available; console route admitted
+    check_olm: true                    # OLM packageserver CSV is Succeeded
+    check_pull_secret: true            # global pull-secret has registry.redhat.io
+    check_clusteroperators: true       # key ClusterOperators are Available=True
+    check_scc_restricted_v2: true      # restricted-v2 SCC exists
+
+    # Optional informational probes (do not fail by default)
+    info_gpu_taints: true              # print taints on GPU nodes
+    info_capacity_floor: false         # print capacity of largest worker and warn if below floor
+    capacity_floor_cpu: 4              # vCPU
+    capacity_floor_memory: "16Gi"     # RAM
+    optional_egress_probe: false       # try DNS/HTTPS for registry.redhat.io/quay.io
+
+  tasks:
+    - name: Ensure oc is available
+      shell: command -v oc
+      register: oc_bin
+      changed_when: false
+      failed_when: oc_bin.rc != 0
+
+    - name: Ensure jq is available
+      shell: command -v jq
+      register: jq_bin
+      changed_when: false
+      failed_when: jq_bin.rc != 0
+
+    - name: Validate oc is authenticated
+      shell: oc whoami
+      register: oc_whoami
+      changed_when: false
+      failed_when: oc_whoami.rc != 0
+
+    # --- Core checks ---
+    - name: Count CPU worker nodes (non-GPU)
+      shell: |
+        oc get nodes -l 'node-role.kubernetes.io/worker' -o json | jq '
+          [.items[]
+            | select(((.status.allocatable["nvidia.com/gpu"] // "0") | tostring | tonumber) == 0)
+          ]
+          | length
+        '
+      register: cpu_worker_count
+      changed_when: false
+
+    - name: Assert at least one CPU worker node exists
+      assert:
+        that:
+          - (cpu_worker_count.stdout | int) >= 1
+        fail_msg: "No CPU worker nodes detected (need at least one worker without GPU resources)."
+        success_msg: "CPU worker nodes detected: {{ cpu_worker_count.stdout }}"
+
+    - name: Count GPU nodes by role label
+      shell: oc get nodes -l 'node-role.kubernetes.io/gpu' --no-headers | wc -l
+      register: gpu_role_count
+      changed_when: false
+
+    - name: Count GPU nodes by NFD label
+      shell: |
+        oc get nodes -o json | jq '
+          [.items[] | select(.metadata.labels["nvidia.com/gpu.present"]=="true")]
+          | length
+        '
+      register: gpu_nfd_count
+      changed_when: false
+
+    - name: Count GPU nodes by allocatable resource
+      shell: |
+        oc get nodes -o json | jq '
+          [.items[]
+            | ((.status.allocatable["nvidia.com/gpu"]? // "0") | tostring | tonumber)
+            | select(. > 0)
+          ]
+          | length
+        '
+      register: gpu_alloc_count
+      changed_when: false
+
+    - name: Compute GPU presence
+      set_fact:
+        gpu_present: >-
+          {{ (gpu_role_count.stdout | int) > 0 or (gpu_nfd_count.stdout | int) > 0 or (gpu_alloc_count.stdout | int) > 0 }}
+
+    - name: Assert at least one GPU node is available
+      assert:
+        that:
+          - gpu_present | bool
+        fail_msg: "No GPU nodes detected by role label, NFD label, or allocatable resource."
+        success_msg: "GPU detected (role: {{ gpu_role_count.stdout }}, NFD: {{ gpu_nfd_count.stdout }}, alloc: {{ gpu_alloc_count.stdout }})."
+
+    - name: Find unschedulable (cordoned) nodes
+      shell: |
+        oc get nodes -o json | jq -r '
+          .items[] | select(.spec.unschedulable==true) | .metadata.name
+        '
+      register: unschedulable_nodes
+      changed_when: false
+
+    - name: Assert all nodes are schedulable
+      assert:
+        that:
+          - (unschedulable_nodes.stdout_lines | length) == 0
+        fail_msg: "Found cordoned/unschedulable nodes: {{ unschedulable_nodes.stdout_lines | join(', ') }}"
+        success_msg: "All nodes are schedulable."
+
+    - name: List GPU node names (allocatable > 0)
+      shell: |
+        oc get nodes -o json | jq -r '
+          .items[]
+          | select(((.status.allocatable["nvidia.com/gpu"]? // "0") | tostring | tonumber) > 0)
+          | .metadata.name
+        '
+      register: gpu_node_names
+      changed_when: false
+
+    - name: Initialize GPU role label warning
+      set_fact:
+        gpu_label_warning: false
+
+    - name: Determine GPU role label warning
+      set_fact:
+        gpu_label_warning: true
+      when: (gpu_role_count.stdout | int) == 0 and ((gpu_nfd_count.stdout | int) > 0 or (gpu_alloc_count.stdout | int) > 0)
+
+    # --- Optional checks ---
+    - name: Get current OpenShift version
+      when: min_ocp_version | length > 0
+      shell: oc get clusterversion version -o jsonpath='{.status.desired.version}'
+      register: ocp_version_cmd
+      changed_when: false
+
+    - name: Assert OpenShift version meets minimum
+      when: min_ocp_version | length > 0
+      assert:
+        that:
+          - (ocp_version_cmd.stdout | trim) is version(min_ocp_version, '>=')
+        fail_msg: "Cluster version {{ ocp_version_cmd.stdout | trim }} is less than required {{ min_ocp_version }}"
+        success_msg: "Cluster version {{ ocp_version_cmd.stdout | trim }} >= {{ min_ocp_version }}"
+
+    - name: Verify a default StorageClass exists
+      when: require_default_sc | bool
+      shell: |
+        oc get sc -o json | jq '
+          [.items[]
+            | select(
+                .metadata.annotations["storageclass.kubernetes.io/is-default-class"]=="true"
+                or .metadata.annotations["storageclass.kubernetes.io/is-default-class"]==true
+              )
+          ]
+          | length
+        '
+      register: default_sc_count
+      changed_when: false
+
+    - name: Assert default StorageClass present
+      when: require_default_sc | bool
+      assert:
+        that:
+          - (default_sc_count.stdout | int) >= 1
+        fail_msg: "No default StorageClass found."
+        success_msg: "Default StorageClass present."
+
+    - name: Check default IngressController available
+      when: check_ingress | bool
+      shell: |
+        oc get ingresscontroller/default -n openshift-ingress-operator -o json | jq -r '
+          first(.status.conditions[] | select(.type=="Available")).status
+        '
+      register: ingress_available
+      changed_when: false
+
+    - name: Assert IngressController Available=True
+      when: check_ingress | bool
+      assert:
+        that:
+          - ingress_available.stdout == 'True'
+        fail_msg: "Default IngressController is not Available."
+        success_msg: "Default IngressController is Available."
+
+    - name: Check console route admitted
+      when: check_ingress | bool
+      shell: >
+        oc get route console -n openshift-console -o json | jq -e '.status.ingress[]? | any(.conditions[]?; .type=="Admitted" and .status=="True")'
+      register: console_route_admitted
+      changed_when: false
+      failed_when: console_route_admitted.rc != 0
+
+    - name: Check OLM packageserver CSV phase
+      when: check_olm | bool
+      shell: |
+        oc get csv -n openshift-operator-lifecycle-manager -o json | jq -r '
+          first(.items[] | select(.metadata.name | test("packageserver"))).status.phase
+        '
+      register: packageserver_phase
+      changed_when: false
+
+    - name: Assert OLM packageserver CSV is Succeeded
+      when: check_olm | bool
+      assert:
+        that:
+          - packageserver_phase.stdout == 'Succeeded'
+        fail_msg: "OLM packageserver CSV not in Succeeded state (got: {{ packageserver_phase.stdout }})."
+        success_msg: "OLM packageserver CSV is Succeeded."
+
+    - name: Verify global pull-secret contains registry.redhat.io
+      when: check_pull_secret | bool
+      shell: >
+        oc get secret pull-secret -n openshift-config -o json | jq -r '.data[".dockerconfigjson"]' | base64 -d | jq -e '.auths | has("registry.redhat.io")'
+      register: pull_secret_has_rh
+      changed_when: false
+      failed_when: pull_secret_has_rh.rc != 0
+
+    - name: Verify critical ClusterOperators are Available=True
+      when: check_clusteroperators | bool
+      shell: |
+        oc get co -o json | jq -r '
+          [.items[] | {name:.metadata.name,avail:(.status.conditions[] | select(.type=="Available").status)}]
+          | map(select((.name=="console" or .name=="ingress" or .name=="image-registry" or .name=="authentication") and .avail!="True"))
+          | .[].name
+        '
+      register: bad_cos
+      changed_when: false
+
+    - name: Assert ClusterOperators availability
+      when: check_clusteroperators | bool
+      assert:
+        that:
+          - bad_cos.stdout == ''
+        fail_msg: "ClusterOperators not Available=True: {{ (bad_cos.stdout_lines | default([])) | join(', ') }}"
+        success_msg: "All critical ClusterOperators are Available=True."
+
+    - name: Check SCC restricted-v2 exists
+      when: check_scc_restricted_v2 | bool
+      shell: oc get scc restricted-v2 --no-headers
+      register: scc_rv2
+      changed_when: false
+      failed_when: scc_rv2.rc != 0
+
+    - name: GPU taints summary (informational)
+      when: info_gpu_taints | bool
+      shell: |
+        oc get nodes -l 'node-role.kubernetes.io/gpu' -o json | jq -r '
+          .items[]
+          | select(.spec.taints!=null)
+          | "\(.metadata.name): \(.spec.taints | map(.key+":"+.effect) | join(", "))"
+        '
+      register: gpu_taints
+      changed_when: false
+
+    - name: Print GPU taints (if any)
+      when: info_gpu_taints | bool
+      debug:
+        msg: "GPU node taints: {{ gpu_taints.stdout_lines | default([]) }}"
+
+    - name: Worker capacity floor (informational)
+      when: info_capacity_floor | bool
+      shell: |
+        oc get nodes -l 'node-role.kubernetes.io/worker' -o json | jq -r '
+          def parse_cpu: if test("m$") then (.[:-1]|tonumber)/1000 else tonumber end;
+          def parse_mem:
+            if test("Ki$") then (sub("Ki$";"")|tonumber)*1024
+            elif test("Mi$") then (sub("Mi$";"")|tonumber)*1024*1024
+            elif test("Gi$") then (sub("Gi$";"")|tonumber)*1024*1024*1024
+            elif test("Ti$") then (sub("Ti$";"")|tonumber)*1024*1024*1024*1024
+            else (tonumber? // 0) end;
+          [.items[]
+            | select(.metadata.labels["node-role.kubernetes.io/worker"])
+            | {name:.metadata.name, cpu: (.status.allocatable.cpu | tostring | parse_cpu), mem: (.status.allocatable.memory | tostring | parse_mem)}
+          ]
+          | (max_by(.cpu) // {name:"",cpu:0,mem:0}) as $maxcpu
+          | (max_by(.mem) // {name:"",cpu:0,mem:0}) as $maxmem
+          | {maxcpu:$maxcpu, maxmem:$maxmem}
+        '
+      register: capacity_json
+      changed_when: false
+
+    - name: Print capacity summary
+      when: info_capacity_floor | bool
+      debug:
+        msg:
+          - "Largest worker by CPU: {{ (capacity_json.stdout | from_json).maxcpu.name }} ({{ (capacity_json.stdout | from_json).maxcpu.cpu }} cores)"
+          - "Largest worker by Memory: {{ (capacity_json.stdout | from_json).maxmem.name }} ({{ (capacity_json.stdout | from_json).maxmem.mem }} bytes)"
+
+    - name: Pretty verification summary
+      debug:
+        msg: |
+          =========================================
+          OpenShift AI Verification Summary
+          =========================================
+          CPU workers: {{ cpu_worker_count.stdout | default('N/A') }}
+          GPU detected: {{ ( (gpu_nfd_count.stdout | int) > 0 or (gpu_alloc_count.stdout | int) > 0 ) | ternary('yes', 'no') }}
+            - via role labels: {{ gpu_role_count.stdout | default('0') }}
+            - via NFD:        {{ gpu_nfd_count.stdout | default('0') }}
+            - via alloc:      {{ gpu_alloc_count.stdout | default('0') }}
+            - GPU nodes (alloc>0): {{ gpu_node_names.stdout_lines | default([]) | join(', ') }}
+          {% if gpu_label_warning | default(false) %}
+          WARNING: GPU role labels are 0 but GPUs are detected via NFD/alloc. This is acceptable; ensure tolerations if taints are present.
+          {% endif %}
+          Nodes schedulable: {{ (unschedulable_nodes.stdout_lines | default([]) | length == 0) | ternary('yes', 'no') }}
+          Web Terminal CSV: {{ web_terminal_csv.stdout | default('') }}
+          Cluster version:  {{ ocp_version_cmd.stdout | default('N/A') }}
+          Default StorageClass: {{ (default_sc_count.stdout | default('0') | int >= 1) | ternary('present','missing') }}
+          Ingress Available: {{ ingress_available.stdout | default('N/A') }}
+          OLM packageserver: {{ packageserver_phase.stdout | default('N/A') }}
+          Pull-secret (registry.redhat.io): {{ (pull_secret_has_rh.rc | default(1)) == 0 | ternary('present','missing') }}
+          ClusterOperators OK: {{ (bad_cos.stdout | default('')) == '' | ternary('yes', 'no') }}
+          SCC restricted-v2: {{ (scc_rv2.rc | default(1)) == 0 | ternary('present', 'missing') }}
+
+    - name: Compute pass/fail summary
+      set_fact:
+        pass_cpu_worker: "{{ (cpu_worker_count.stdout | int) >= 1 }}"
+        pass_gpu_present: "{{ gpu_present | bool }}"
+        pass_schedulable: "{{ (unschedulable_nodes.stdout_lines | default([]) | length) == 0 }}"
+        pass_web_terminal: "{{ web_terminal_csv.stdout | default('') != '' }}"
+        pass_version: "{{ (min_ocp_version | length > 0) and (ocp_version_cmd.stdout is version(min_ocp_version, '>=') ) }}"
+        pass_default_sc: "{{ (not require_default_sc) or ((default_sc_count.stdout | default('0') | int) >= 1) }}"
+        pass_ingress: "{{ (not check_ingress) or ((ingress_available.stdout | default('False')) == 'True' and (console_route_admitted.rc | default(1)) == 0) }}"
+        pass_olm: "{{ (not check_olm) or ((packageserver_phase.stdout | default('')) == 'Succeeded') }}"
+        pass_pull_secret: "{{ (not check_pull_secret) or ((pull_secret_has_rh.rc | default(1)) == 0) }}"
+        pass_cos: "{{ (not check_clusteroperators) or ((bad_cos.stdout | default('')) == '') }}"
+        pass_scc: "{{ (not check_scc_restricted_v2) or ((scc_rv2.rc | default(1)) == 0) }}"
+
+    - name: Print verification table (terminal)
+      shell: |
+        cat <<'TABLE' | column -t -s '|'
+        Step|Coverage|Result
+        CPU worker node|At least 1 non-GPU worker|{{ (pass_cpu_worker | bool) | ternary('PASS','FAIL') }}
+        GPU node available|GPU via role/NFD/alloc|{{ (pass_gpu_present | bool) | ternary('PASS','FAIL') }}
+        Nodes schedulable|No cordoned nodes|{{ (pass_schedulable | bool) | ternary('PASS','FAIL') }}
+        Web Terminal operator|CSV Succeeded in openshift-operators|{{ (pass_web_terminal | bool) | ternary('PASS','FAIL') }}
+        OpenShift version|>= {{ min_ocp_version | default('N/A') }}|{{ ( (min_ocp_version | length > 0) | ternary((pass_version | bool) | ternary('PASS','FAIL'),'N/A') ) }}
+        Default StorageClass|Default SC present|{{ ( (require_default_sc | bool) | ternary((pass_default_sc | bool) | ternary('PASS','FAIL'),'N/A') ) }}
+        Ingress health|Default Ingress Available + console route admitted|{{ ( (check_ingress | bool) | ternary((pass_ingress | bool) | ternary('PASS','FAIL'),'N/A') ) }}
+        OLM packageserver|CSV Succeeded|{{ ( (check_olm | bool) | ternary((pass_olm | bool) | ternary('PASS','FAIL'),'N/A') ) }}
+        Pull-secret registry.redhat.io|Global pull-secret includes registry.redhat.io|{{ ( (check_pull_secret | bool) | ternary((pass_pull_secret | bool) | ternary('PASS','FAIL'),'N/A') ) }}
+        ClusterOperators available|console, ingress, image-registry, authentication|{{ ( (check_clusteroperators | bool) | ternary((pass_cos | bool) | ternary('PASS','FAIL'),'N/A') ) }}
+        SCC restricted-v2|SCC exists|{{ ( (check_scc_restricted_v2 | bool) | ternary((pass_scc | bool) | ternary('PASS','FAIL'),'N/A') ) }}
+        TABLE
+      args:
+        executable: /bin/bash
+      register: verification_table
+      changed_when: false
+
+    - name: Show verification table
+      debug:
+        msg: "{{ verification_table.stdout }}"
+
+    - name: Initialize remediation list
+      set_fact:
+        remediations: []
+
+    - name: Add remediation - CPU workers
+      set_fact:
+        remediations: "{{ remediations + ['Add at least one non-GPU worker node (role label worker) and ensure allocatable nvidia.com/gpu is 0 on at least one node.'] }}"
+      when: not (pass_cpu_worker | bool)
+
+    - name: Add remediation - GPU present
+      set_fact:
+        remediations: "{{ remediations + ['Install and verify Node Feature Discovery and NVIDIA GPU Operator; ensure GPU nodes report allocatable nvidia.com/gpu > 0.'] }}"
+      when: not (pass_gpu_present | bool)
+
+    - name: Add remediation - Schedulable
+      set_fact:
+        remediations: "{{ remediations + ['Uncordon nodes: oc adm uncordon <node>; check taints if necessary.'] }}"
+      when: not (pass_schedulable | bool)
+
+    - name: Add remediation - Web Terminal
+      set_fact:
+        remediations: "{{ remediations + ['Install Web Terminal operator (apply components/00-prereqs or run prereqs playbook) and wait for CSV Succeeded.'] }}"
+      when: not (pass_web_terminal | bool)
+
+    - name: Add remediation - Version
+      set_fact:
+        remediations: "{{ remediations + ['Upgrade OpenShift to at least ' ~ min_ocp_version ~ ' (current: ' ~ (ocp_version_cmd.stdout | default('N/A')) ~ ').'] }}"
+      when: (min_ocp_version | length > 0) and not (pass_version | bool)
+
+    - name: Add remediation - Default SC
+      set_fact:
+        remediations: "{{ remediations + ['Set a default StorageClass: oc annotate sc <name> storageclass.kubernetes.io/is-default-class=true --overwrite.'] }}"
+      when: (require_default_sc | bool) and not (pass_default_sc | bool)
+
+    - name: Add remediation - Ingress
+      set_fact:
+        remediations: "{{ remediations + ['Investigate Ingress: oc get ingresscontroller/default -n openshift-ingress-operator -o yaml; check operator logs and console route admission.'] }}"
+      when: (check_ingress | bool) and not (pass_ingress | bool)
+
+    - name: Add remediation - OLM
+      set_fact:
+        remediations: "{{ remediations + ['Investigate OLM packageserver CSV: oc get csv -n openshift-operator-lifecycle-manager; ensure phase is Succeeded.'] }}"
+      when: (check_olm | bool) and not (pass_olm | bool)
+
+    - name: Add remediation - Pull secret
+      set_fact:
+        remediations: "{{ remediations + ['Add registry.redhat.io auth to pull-secret: oc extract secret/pull-secret -n openshift-config --to=- | jq ...; then oc set data secret/pull-secret -n openshift-config --from-file=.dockerconfigjson=...'] }}"
+      when: (check_pull_secret | bool) and not (pass_pull_secret | bool)
+
+    - name: Add remediation - ClusterOperators
+      set_fact:
+        remediations: "{{ remediations + ['Investigate ClusterOperators not Available=True: oc get co; inspect non-available operators and fix underlying issues.'] }}"
+      when: (check_clusteroperators | bool) and not (pass_cos | bool)
+
+    - name: Add remediation - SCC
+      set_fact:
+        remediations: "{{ remediations + ['Ensure restricted-v2 SCC exists; check cluster version and SCC configuration.'] }}"
+      when: (check_scc_restricted_v2 | bool) and not (pass_scc | bool)
+
+    - name: Set report time and path
+      set_fact:
+        report_time: "{{ lookup('pipe','date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+        report_path: "{{ lookup('env','REPORT_PATH') | default(playbook_dir + '/../verify-report.md', true) }}"
+
+    - name: Build Markdown report
+      set_fact:
+        md_report: |
+          # OpenShift AI Verification Report
+          Timestamp: {{ report_time }}
+
+          ## Summary
+          - CPU workers: {{ cpu_worker_count.stdout }}
+          - GPU nodes (alloc>0): {{ gpu_node_names.stdout_lines | default([]) | join(', ') }}
+          - Nodes schedulable: {{ (pass_schedulable | bool) | ternary('yes','no') }}
+          - Web Terminal CSV: {{ web_terminal_csv.stdout | default('') }}
+          - Cluster version: {{ ocp_version_cmd.stdout | default('N/A') }}
+
+          ## Results
+          | Step | Coverage | Result |
+          |------|----------|--------|
+          | CPU worker node | At least 1 non-GPU worker | {{ (pass_cpu_worker | bool) | ternary('PASS','FAIL') }} |
+          | GPU node available | GPU via role/NFD/alloc | {{ (pass_gpu_present | bool) | ternary('PASS','FAIL') }} |
+          | Nodes schedulable | No cordoned nodes | {{ (pass_schedulable | bool) | ternary('PASS','FAIL') }} |
+          | Web Terminal operator | CSV Succeeded in openshift-operators | {{ (pass_web_terminal | bool) | ternary('PASS','FAIL') }} |
+          | OpenShift version | >= {{ min_ocp_version | default('N/A') }} | {{ ( (min_ocp_version | length > 0) | ternary((pass_version | bool) | ternary('PASS','FAIL'),'N/A') ) }} |
+          | Default StorageClass | Default StorageClass present | {{ ( (require_default_sc | bool) | ternary((pass_default_sc | bool) | ternary('PASS','FAIL'),'N/A') ) }} |
+          | Ingress health | Default Ingress Available + console route admitted | {{ ( (check_ingress | bool) | ternary((pass_ingress | bool) | ternary('PASS','FAIL'),'N/A') ) }} |
+          | OLM packageserver | CSV Succeeded | {{ ( (check_olm | bool) | ternary((pass_olm | bool) | ternary('PASS','FAIL'),'N/A') ) }} |
+          | Pull-secret registry.redhat.io | Pull-secret includes registry.redhat.io | {{ ( (check_pull_secret | bool) | ternary((pass_pull_secret | bool) | ternary('PASS','FAIL'),'N/A') ) }} |
+          | ClusterOperators available | console, ingress, image-registry, authentication | {{ ( (check_clusteroperators | bool) | ternary((pass_cos | bool) | ternary('PASS','FAIL'),'N/A') ) }} |
+          | SCC restricted-v2 | SCC exists | {{ ( (check_scc_restricted_v2 | bool) | ternary((pass_scc | bool) | ternary('PASS','FAIL'),'N/A') ) }} |
+
+          {% if (remediations | default([])) | length > 0 %}
+          ## Remediation recommendations
+          {% for r in remediations %}
+          - {{ r }}
+          {% endfor %}
+          {% endif %}
+
+    - name: Write Markdown report to file
+      copy:
+        dest: "{{ report_path }}"
+        mode: '0644'
+        content: "{{ md_report }}"
