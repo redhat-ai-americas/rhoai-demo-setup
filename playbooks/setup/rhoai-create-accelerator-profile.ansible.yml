@@ -1,0 +1,34 @@
+- name: Create RHOAI Accelerator Profile
+  hosts: localhost
+  vars:
+    repo_dir: "{{ lookup('env', 'REPO_DIR') | default(playbook_dir | dirname | dirname, true) }}"
+  tasks:
+    - name: Apply RHOAI accelerator profile
+      shell: |
+        oc apply -f {{ repo_dir }}/components/10-rhoai-operator/rhoai-nvidia-profile.yaml
+      register: rhoai_accelerator_apply
+      retries: 3
+      delay: 10
+      until: rhoai_accelerator_apply.rc == 0
+
+    - name: Validate RHOAI accelerator profile application
+      shell: |
+        oc get acceleratorprofile nvidia-gpu-profile -n redhat-ods-applications
+      register: rhoai_accelerator_profile
+      retries: 20
+      delay: 15
+      until: rhoai_accelerator_profile.stdout != ""
+      changed_when: false
+
+    - name: Print RHOAI accelerator profile details
+      debug:
+        var: rhoai_accelerator_profile.stdout
+      when: rhoai_accelerator_profile.stdout != ""
+
+    - name: Apply telemetry configuration
+      shell: |
+        oc apply -f {{ repo_dir }}/components/10-rhoai-operator/telemetry-cm.yaml
+      register: telemetry_cm_apply
+      retries: 3
+      delay: 10
+      until: telemetry_cm_apply.rc == 0

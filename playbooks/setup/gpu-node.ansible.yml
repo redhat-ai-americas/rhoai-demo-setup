@@ -2,7 +2,9 @@
   hosts: localhost
   gather_facts: no
   vars:
-    gpu_instance_type: g6e.16xlarge
+    # g6e.12xlarge NVIDIA L40S 4 GPUs
+    # g6e.12xlarge NVIDIA L40S 1 GPU vRAM 48GB
+    gpu_instance_type: g6e.4xlarge
     gpu_node_label: "node-role.kubernetes.io/gpu"
     namespace: openshift-machine-api
 
@@ -10,6 +12,18 @@
     - name: Get all MachineSets
       shell: oc get machineset -n {{ namespace }} -o json
       register: machinesets_json
+
+    - name: Print all MachineSet names
+      debug:
+        msg: "MachineSets: {{ machinesets_json.stdout | from_json | json_query('items[*].metadata.name') }}"
+
+    - name: Get all availability zones from MachineSets
+      set_fact:
+        availability_zones: "{{ machinesets_json.stdout | from_json | json_query('items[*].spec.template.spec.providerSpec.value.placement.availabilityZone') }}"
+
+    - name: Print all availability zones
+      debug:
+        msg: "Availability Zones: {{ availability_zones }}"
 
     - name: Select first MachineSet as source
       set_fact:
@@ -90,4 +104,45 @@
     - name: Show final result
       debug:
         msg: "{{ gpu_node_output.stdout }}"
-# TODO: Add task to taint the GPU node
+
+    - name: Wait for NVIDIA GPU operator pods to be Running
+      shell: |
+        required_pods="nvidia-container-toolkit-daemonset nvidia-driver-daemonset nvidia-device-plugin-daemonset nvidia-operator-validator"
+        not_ready=""
+        echo "Pod status summary:"
+        for pod_pattern in $required_pods; do
+          total=$(oc get pods -n nvidia-gpu-operator --no-headers | grep "$pod_pattern" | wc -l)
+          running=$(oc get pods -n nvidia-gpu-operator --no-headers | grep "$pod_pattern" | grep Running | wc -l)
+          echo "  $pod_pattern: $running/$total Running"
+          if [ "$total" -eq 0 ] || [ "$running" -lt "$total" ]; then
+            not_ready="$not_ready $pod_pattern"
+          fi
+        done
+        if [ -z "$not_ready" ]; then
+          echo "All required NVIDIA pods are Running."
+          exit 0
+        else
+          echo "Pods not ready:$not_ready"
+          exit 1
+        fi
+      register: nvidia_pods_ready
+      retries: 40 # 40 x 30s = 1200s = 20min
+      delay: 30
+      until: nvidia_pods_ready.rc == 0
+      changed_when: false
+
+    - name: Print status of NVIDIA GPU operator pods
+      shell: |
+        required_pods="nvidia-container-toolkit-daemonset nvidia-driver-daemonset nvidia-device-plugin-daemonset nvidia-operator-validator"
+        echo "Pod status summary:"
+        for pod_pattern in $required_pods; do
+          oc get pods -n nvidia-gpu-operator --no-headers | grep "$pod_pattern" || echo "No pod found for $pod_pattern"
+        done
+      register: nvidia_pods_status
+      changed_when: false
+      ignore_errors: true
+
+    - name: Print each NVIDIA pod status line
+      debug:
+        msg: "{{ item }}"
+      loop: "{{ nvidia_pods_status.stdout.split('\n') }}"

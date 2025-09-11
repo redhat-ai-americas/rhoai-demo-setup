@@ -82,7 +82,7 @@ Below are the main Ansible files under the `playbooks/` directory (top-level onl
 **Run with:**
 
 ```sh
-ansible-playbook playbooks/setup-cluster.ansible.yml
+ansible-playbook playbooks/cluster-setup.ansible.yml
 ```
 
 - Below components get installed:
@@ -176,3 +176,5 @@ ansible-playbook playbooks/demo-vllm.ansible.yml
 > ```sh
 > ansible-playbook playbooks/cluster-setup.ansible.yml | tee cluster-setup.log
 > ```
+
+> You can refer to github repo [demo-ai-gitops-catalog](https://github.com/redhat-na-ssa/demo-ai-gitops-catalog) for for more in-depth RHOAI installation and customization.

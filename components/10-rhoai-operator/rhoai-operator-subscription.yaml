@@ -5,6 +5,6 @@ metadata:
   namespace: redhat-ods-operator
 spec:
   name: rhods-operator
-  channel: stable-2.19
+  channel: stable-2.22
   source: redhat-operators
   sourceNamespace: openshift-marketplace
