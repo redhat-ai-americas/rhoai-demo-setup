@@ -50,7 +50,7 @@
     - name: Validate GPU cluster policy creation
       shell: |
         oc get clusterpolicy gpu-cluster-policy -o json | \
-        jq -r '.status.state // "NotReady"'
+        jq -r '.status.state'
       register: cluster_policy_status
       retries: 10
       delay: 30
