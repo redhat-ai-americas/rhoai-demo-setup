@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # RhoAI Demo Setup - Component Installation Script
-# This script installs all components in the correct order with proper waiting
 
 set -e  # Exit on any error
 
@@ -117,7 +116,6 @@ main() {
     declare -a components=(
         "components/00-prereqs:Prerequisites"
         "components/01-admin-user:Admin User Setup"
-        "components/02-gpu-node:GPU Node Setup"
         "components/03-gpu-operators:GPU Operators"
         "components/04-gpu-dashboard:GPU Dashboard"
         "components/07-authorino-operator:Authorino Operator"
@@ -143,9 +141,9 @@ main() {
         fi
         
         # Wait for component to be ready (except for the last one)
-        if [ "$component" != "${components[-1]}" ]; then
-            wait_for_component "$name"
-        fi
+        # if [ "$component" != "${components[-1]}" ]; then
+        #     wait_for_component "$name"
+        # fi
         
         echo ""
     done
