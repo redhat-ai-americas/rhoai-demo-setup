@@ -1,0 +1,7 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../../components/10-rhoai-operator/
+  - ../../../components/11-serving-runtime/
+  - ../../../components/13-monitoring/
