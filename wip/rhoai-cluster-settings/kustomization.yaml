@@ -1,0 +1,6 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - patch-rhoai-dashboard.yaml
+  - notebook-culler-config.yaml

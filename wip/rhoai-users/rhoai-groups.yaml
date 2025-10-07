@@ -1,0 +1,13 @@
+apiVersion: user.openshift.io/v1
+kind: Group
+metadata:
+  name: rhods-admins
+users:
+  - rhoai-admin1
+---
+apiVersion: user.openshift.io/v1
+kind: Group
+metadata:
+  name: rhods-users
+users:
+  - rhoai-user1

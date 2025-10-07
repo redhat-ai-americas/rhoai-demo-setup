@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: notebook-controller-culler-config
+  namespace: redhat-ods-applications
+data:
+  ENABLE_CULLING: "true"          
+  CULL_IDLE_TIME: "120"           # Idle timeout in minutes (e.g., 120 = 2 hours)
+  IDLENESS_CHECK_PERIOD: "45"      # Scan interval in minutes (default 1; higher = less overhead)

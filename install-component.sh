@@ -1,12 +1,14 @@
 #!/bin/bash
 
-# RhoAI Demo Setup - Component Installation Script
+# RhoAI Demo Setup - Single Component Installation Script
 
 set -e  # Exit on any error
 
-# Create log file with timestamp
+# Create log directory and file with timestamp
+LOG_DIR="logs"
+mkdir -p "$LOG_DIR"
 TIMESTAMP=$(date +'%Y%m%d_%H%M%S')
-LOG_FILE="install-components_${TIMESTAMP}.log"
+LOG_FILE="$LOG_DIR/install-component_${TIMESTAMP}.log"
 
 # Colors for output
 RED='\033[0;31m'
@@ -47,11 +49,28 @@ error() {
     log_both "${RED}[$(date +'%Y-%m-%d %H:%M:%S')] ✗${NC} $1"
 }
 
-# Function to wait for component to be ready
-wait_for_component() {
-    local component_name="$1"
-    local max_attempts=30
-    local attempt=1
+# Function to validate kustomize directory
+validate_kustomize_directory() {
+    local kustomize_dir="$1"
+    
+    # Check if directory exists
+    if [ ! -d "$kustomize_dir" ]; then
+        error "Directory '$kustomize_dir' does not exist"
+        return 1
+    fi
+    
+    # Check if kustomization.yaml or kustomization.yml exists
+    if [ ! -f "$kustomize_dir/kustomization.yaml" ] && [ ! -f "$kustomize_dir/kustomization.yml" ]; then
+        error "Directory '$kustomize_dir' is not a valid kustomize directory (missing kustomization.yaml or kustomization.yml)"
+        return 1
+    fi
+    
+    # Check if kustomize command can build the directory
+    if ! kustomize build "$kustomize_dir" > /dev/null 2>&1; then
+        error "Directory '$kustomize_dir' contains invalid kustomize configuration"
+        return 1
+    fi
+    
     return 0
 }
 
@@ -82,17 +101,58 @@ apply_component() {
     return 1
 }
 
+# Function to show usage
+show_usage() {
+    echo "Usage: $0 <kustomize-directory>"
+    echo ""
+    echo "Install a single component from a kustomize directory"
+    echo ""
+    echo "Arguments:"
+    echo "  kustomize-directory    Path to the kustomize directory containing kustomization.yaml"
+    echo ""
+    echo "Examples:"
+    echo "  $0 components/00-prereqs"
+    echo "  $0 components/01-admin-user"
+    echo "  $0 components/03-gpu-operators"
+    echo ""
+    echo "The script will:"
+    echo "  1. Validate that the directory is a valid kustomize directory"
+    echo "  2. Check OpenShift CLI (oc) is available and user is logged in"
+    echo "  3. Apply the kustomize configuration to the cluster"
+    echo "  4. Log all operations to a timestamped log file"
+}
+
 # Main installation function
 main() {
+    # Check if kustomize directory argument is provided
+    if [ $# -eq 0 ]; then
+        error "No kustomize directory provided"
+        echo ""
+        show_usage
+        exit 1
+    fi
+    
+    local kustomize_dir="$1"
+    
     # Initialize log file
     log_to_file "=================================================="
-    log_to_file "RhoAI Demo Setup Component Installation Started"
+    log_to_file "RhoAI Demo Setup Single Component Installation Started"
+    log_to_file "Target directory: $kustomize_dir"
     log_to_file "Log file: $LOG_FILE"
     log_to_file "=================================================="
     
-    log "Starting RhoAI Demo Setup Component Installation"
+    log "Starting RhoAI Demo Setup Single Component Installation"
+    log "Target directory: $kustomize_dir"
     log "Log file: $LOG_FILE"
     log "=================================================="
+    
+    # Validate kustomize directory
+    log "Validating kustomize directory: $kustomize_dir"
+    if ! validate_kustomize_directory "$kustomize_dir"; then
+        error "Invalid kustomize directory. Exiting."
+        exit 1
+    fi
+    success "Kustomize directory validation passed"
     
     # Check if oc command is available
     if ! command -v oc &> /dev/null; then
@@ -112,43 +172,16 @@ main() {
     log "Connected to cluster: $cluster_info"
     log_to_file "Connected to cluster: $cluster_info"
     
-    # Define components in installation order
-    declare -a components=(
-        "components/00-prereqs:Prerequisites"
-        "components/01-admin-user:Admin User Setup"
-        "components/03-gpu-operators:GPU Operators"
-        "components/04-gpu-dashboard:GPU Dashboard"
-        "components/07-authorino-operator:Authorino Operator"
-        "components/08-serverless-operator:Serverless Operator"
-        "components/09-servicemesh-operator:Service Mesh Operator"
-        "components/10-rhoai-operator:RhoAI Operator"
-        "components/11-serving-runtime:Serving Runtime"
-        "components/13-monitoring:Monitoring"
-    )
+    # Extract component name from directory path
+    local component_name=$(basename "$kustomize_dir")
     
-    # Install each component
-    for component in "${components[@]}"; do
-        IFS=':' read -r path name <<< "$component"
-        
-        if [ ! -d "$path" ]; then
-            warning "Component directory $path not found, skipping..."
-            continue
-        fi
-        
-        if ! apply_component "$path" "$name"; then
-            error "Failed to install $name. Stopping installation."
-            exit 1
-        fi
-        
-        # Wait for component to be ready (except for the last one)
-        # if [ "$component" != "${components[-1]}" ]; then
-        #     wait_for_component "$name"
-        # fi
-        
-        echo ""
-    done
+    # Install the component
+    if ! apply_component "$kustomize_dir" "$component_name"; then
+        error "Failed to install $component_name. Exiting."
+        exit 1
+    fi
     
-    success "All components installed successfully!"
+    success "Component '$component_name' installed successfully!"
     log "=================================================="
     log "Installation completed at $(date)"
     
