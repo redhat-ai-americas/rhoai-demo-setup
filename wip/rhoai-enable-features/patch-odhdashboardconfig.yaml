@@ -6,3 +6,4 @@ metadata:
 spec:
   dashboardConfig:
     disableModelCatalog: false
+    disableHardwareProfiles: false

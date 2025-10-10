@@ -3,3 +3,13 @@
 - import_playbook: setup/scale-cpumachineset.ansible.yml
 - import_playbook: gpu-setup.ansible.yml
 - import_playbook: rhoai-setup.ansible.yml
+
+- name: Wait for 1 minute
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Wait for 30 seconds
+      pause:
+        seconds: 30
+
+- import_playbook: setup/gpu-node.ansible.yml

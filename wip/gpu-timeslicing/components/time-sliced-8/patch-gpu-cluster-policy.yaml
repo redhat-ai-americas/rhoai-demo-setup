@@ -5,7 +5,7 @@ metadata:
 spec:
   devicePlugin:
     config:
-      default: time-sliced-4
+      default: time-sliced-8
       name: device-plugin-config
   gfd:
     enabled: true

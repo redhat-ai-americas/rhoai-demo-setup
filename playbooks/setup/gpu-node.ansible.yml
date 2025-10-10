@@ -2,9 +2,10 @@
   hosts: localhost
   gather_facts: no
   vars:
-    # g6e.12xlarge NVIDIA L40S 4 GPUs
-    # g6e.12xlarge NVIDIA L40S 1 GPU vRAM 48GB
-    gpu_instance_type: g6e.4xlarge
+    # g6e.12xlarge NVIDIA L40S 4 GPUs vRAM 192GB
+    # g6e.4xlarge NVIDIA L40S 1 GPU vRAM 48GB
+    # g6.12xlarge NVIDIA L4 4 GPU vRAM 96GB
+    gpu_instance_type: g6.12xlarge
     gpu_node_label: "node-role.kubernetes.io/gpu"
     namespace: openshift-machine-api
 
@@ -25,13 +26,25 @@
       debug:
         msg: "Availability Zones: {{ availability_zones }}"
 
-    - name: Select first MachineSet as source
+    - name: Select first MachineSet as source (excluding GPU ones)
       set_fact:
-        source_machineset: "{{ machinesets_json.stdout | from_json | json_query('items[0].metadata.name') }}"
+        source_machineset: "{{ machinesets_json.stdout | from_json | json_query('items[?!contains(metadata.name, `gpu`)].metadata.name') | first }}"
+
+    - name: Print selected source MachineSet
+      debug:
+        msg: "Selected source MachineSet: {{ source_machineset }}"
+
+    - name: Generate unique ID for GPU MachineSet
+      shell: date +%s
+      register: timestamp_result
 
     - name: Define new GPU MachineSet name
       set_fact:
-        gpu_machineset: "{{ source_machineset | regex_replace('worker', 'gpu') }}"
+        gpu_machineset: "{{ source_machineset | regex_replace('worker', 'gpu') }}-{{ timestamp_result.stdout }}"
+
+    - name: Print new GPU MachineSet name
+      debug:
+        msg: "New GPU MachineSet name: {{ gpu_machineset }}"
 
     - name: Get source MachineSet YAML
       command: >

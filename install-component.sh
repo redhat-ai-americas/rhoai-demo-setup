@@ -17,14 +17,14 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Function to log to both console and file
+# Log to file
 log_to_file() {
     local message="$1"
     local timestamp=$(date +'%Y-%m-%d %H:%M:%S')
     echo "[$timestamp] $message" >> "$LOG_FILE"
 }
 
-# Function to log to both console and file with color
+# Log to both console and file with color
 log_both() {
     local message="$1"
     echo -e "$message"
@@ -49,7 +49,7 @@ error() {
     log_both "${RED}[$(date +'%Y-%m-%d %H:%M:%S')] ✗${NC} $1"
 }
 
-# Function to validate kustomize directory
+# Validate kustomize directory
 validate_kustomize_directory() {
     local kustomize_dir="$1"
     
@@ -74,7 +74,7 @@ validate_kustomize_directory() {
     return 0
 }
 
-# Function to apply component with retry
+# Apply component with retry
 apply_component() {
     local component_path="$1"
     local component_name="$2"
@@ -82,6 +82,29 @@ apply_component() {
     local attempt=1
     
     log "Installing $component_name..."
+    
+    # List and log all files in the kustomize directory
+    log "Files in kustomize directory '$component_path':"
+    # log_to_file "Files in kustomize directory '$component_path':"
+    
+    if [ -d "$component_path" ]; then
+        # List all files with their relative paths
+        find "$component_path" -type f -name "*.yaml" -o -name "*.yml" -o -name "*.json" | sort | while read -r file; do
+            local relative_file="${file#$component_path/}"
+            log "  - $relative_file"
+            # log_to_file "  - $relative_file"
+        done
+        
+        # Also show any other files that might be relevant
+        find "$component_path" -type f ! -name "*.yaml" ! -name "*.yml" ! -name "*.json" | sort | while read -r file; do
+            local relative_file="${file#$component_path/}"
+            log "  - $relative_file (non-YAML/JSON)"
+            #log_to_file "  - $relative_file (non-YAML/JSON)"
+        done
+    else
+        warning "Directory '$component_path' does not exist"
+        log_to_file "WARNING: Directory '$component_path' does not exist"
+    fi
     
     while [ $attempt -le $max_attempts ]; do
         log_to_file "Attempt $attempt: Installing $component_name from $component_path"
@@ -101,7 +124,7 @@ apply_component() {
     return 1
 }
 
-# Function to show usage
+# Show usage
 show_usage() {
     echo "Usage: $0 <kustomize-directory>"
     echo ""
@@ -122,7 +145,6 @@ show_usage() {
     echo "  4. Log all operations to a timestamped log file"
 }
 
-# Main installation function
 main() {
     # Check if kustomize directory argument is provided
     if [ $# -eq 0 ]; then
@@ -170,7 +192,7 @@ main() {
     
     local cluster_info=$(oc whoami --show-server)
     log "Connected to cluster: $cluster_info"
-    log_to_file "Connected to cluster: $cluster_info"
+    # log_to_file "Connected to cluster: $cluster_info"
     
     # Extract component name from directory path
     local component_name=$(basename "$kustomize_dir")
@@ -182,13 +204,10 @@ main() {
     fi
     
     success "Component '$component_name' installed successfully!"
+ 
     log "=================================================="
-    log "Installation completed at $(date)"
-    
-    # Log completion to file
-    log_to_file "=================================================="
-    log_to_file "Installation completed successfully at $(date)"
-    log_to_file "=================================================="
+    log "Installation completed successfully at $(date)"
+    log "=================================================="
 }
 
 # Run main function
