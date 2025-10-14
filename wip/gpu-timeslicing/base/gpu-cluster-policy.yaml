@@ -42,7 +42,7 @@ spec:
   dcgmExporter:
     enabled: true
     config:
-      name: 'console-plugin-nvidia-gpu'
+      name: ''
     serviceMonitor:
       enabled: true
   dcgm:
