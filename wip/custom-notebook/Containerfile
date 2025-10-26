@@ -1,0 +1,10 @@
+ARG BASE_IMAGE=quay.io/modh/odh-generic-data-science-notebook:v3-20250827
+FROM ${BASE_IMAGE}
+
+COPY requirements.txt /opt/app-root/bin/
+
+RUN cd /opt/app-root/bin \
+ && micropipenv install \
+ && rm -f requirements.txt \
+ && chmod -R g+w /opt/app-root/lib/python3.11/site-packages \
+ && fix-permissions /opt/app-root -P
