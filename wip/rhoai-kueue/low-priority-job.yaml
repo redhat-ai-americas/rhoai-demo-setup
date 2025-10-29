@@ -1,0 +1,24 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: low-priority-job
+  labels:
+    kueue.x-k8s.io/queue-name: team-b-queue
+spec:
+  template:
+    spec:
+      containers:
+      - name: sleep
+        image: busybox
+        command: ["sleep", "3600"]
+        resources:
+          requests:
+            cpu: "5"
+            memory: "10Gi"
+            nvidia.com/gpu: "1"
+          limits:
+            cpu: "5"
+            memory: "10Gi"
+            nvidia.com/gpu: "1"
+      restartPolicy: Never
+      # priorityClassName: low-priority

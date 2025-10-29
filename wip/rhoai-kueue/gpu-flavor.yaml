@@ -1,0 +1,12 @@
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: ResourceFlavor
+metadata:
+  name: gpu-flavor
+spec:
+  nodeLabels:
+    nvidia.com/gpu.present: 'true'
+  tolerations:
+    - effect: NoSchedule
+      key: nvidia.com/gpu
+      operator: Equal
+      value: '100'

@@ -1,0 +1,35 @@
+apiVersion: kueue.x-k8s.io/v1beta1
+kind: ClusterQueue
+metadata:
+  name: shared-cluster-queue
+spec:
+  cohort: shared-cohort
+  flavorFungibility:
+    whenCanBorrow: Borrow
+    whenCanPreempt: TryNextFlavor
+  namespaceSelector: {}
+  preemption:
+    borrowWithinCohort:
+      policy: Never
+    reclaimWithinCohort: Any
+    withinClusterQueue: LowerPriority
+  queueingStrategy: BestEffortFIFO
+  resourceGroups:
+    - coveredResources:
+        - cpu
+        - memory
+      flavors:
+        - name: default
+          resources:
+            - name: cpu
+              nominalQuota: 10
+            - name: memory
+              nominalQuota: 20Gi
+    - coveredResources:
+        - nvidia.com/gpu
+      flavors:
+        - name: gpu-flavor
+          resources:
+            - name: nvidia.com/gpu
+              nominalQuota: '2'
+  stopPolicy: None

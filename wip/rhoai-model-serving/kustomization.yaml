@@ -3,6 +3,5 @@ kind: Kustomization
 
 resources:
   - demo-vllm-ns.yaml
-  # - setup-minio.yaml
-  - vllm-servingruntime.yaml
-  - inferenceservice.yaml
+  - nvidia-vllm-servingruntime.yaml
+  - granite-inferenceservice.yaml

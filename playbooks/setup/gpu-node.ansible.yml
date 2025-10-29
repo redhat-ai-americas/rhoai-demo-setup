@@ -4,8 +4,8 @@
   vars:
     # g6e.12xlarge NVIDIA L40S 4 GPUs vRAM 192GB
     # g6e.4xlarge NVIDIA L40S 1 GPU vRAM 48GB
-    # g6.12xlarge NVIDIA L4 4 GPU vRAM 96GB
-    gpu_instance_type: g6.12xlarge
+    # g6.12xlarge NVIDIA L4 4 GPU vRAM 96GB (so each GPU has 24GB vRAM; 4x24 = 96GB)
+    gpu_instance_type: g6e.4xlarge
     gpu_node_label: "node-role.kubernetes.io/gpu"
     namespace: openshift-machine-api
 
@@ -120,7 +120,7 @@
 
     - name: Wait for NVIDIA GPU operator pods to be Running
       shell: |
-        required_pods="nvidia-container-toolkit-daemonset nvidia-driver-daemonset nvidia-device-plugin-daemonset nvidia-operator-validator"
+        required_pods="nvidia-cuda-validator nvidia-driver-daemonset nvidia-device-plugin-daemonset nvidia-operator-validator"
         not_ready=""
         echo "Pod status summary:"
         for pod_pattern in $required_pods; do
@@ -146,7 +146,7 @@
 
     - name: Print status of NVIDIA GPU operator pods
       shell: |
-        required_pods="nvidia-container-toolkit-daemonset nvidia-driver-daemonset nvidia-device-plugin-daemonset nvidia-operator-validator"
+        required_pods="nvidia-cuda-validator nvidia-driver-daemonset nvidia-device-plugin-daemonset nvidia-operator-validator"
         echo "Pod status summary:"
         for pod_pattern in $required_pods; do
           oc get pods -n nvidia-gpu-operator --no-headers | grep "$pod_pattern" || echo "No pod found for $pod_pattern"

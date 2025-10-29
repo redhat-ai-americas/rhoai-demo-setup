@@ -1,0 +1,91 @@
+﻿kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  annotations:
+    openshift.io/display-name: ds-storage
+    pv.kubernetes.io/bind-completed: 'yes'
+    pv.kubernetes.io/bound-by-controller: 'yes'
+    volume.beta.kubernetes.io/storage-provisioner: ebs.csi.aws.com
+    volume.kubernetes.io/selected-node: ip-10-0-53-30.us-east-2.compute.internal
+    volume.kubernetes.io/storage-provisioner: ebs.csi.aws.com
+  resourceVersion: '2455730'
+  name: ds-storage
+  uid: 7d0bba9c-cb19-4021-802f-877da1ef1ecd
+  creationTimestamp: '2025-10-16T15:25:11Z'
+  managedFields:
+    - manager: kube-scheduler
+      operation: Update
+      apiVersion: v1
+      time: '2025-10-16T15:25:11Z'
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:metadata':
+          'f:annotations':
+            'f:volume.kubernetes.io/selected-node': {}
+    - manager: unknown
+      operation: Update
+      apiVersion: v1
+      time: '2025-10-16T15:25:11Z'
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:metadata':
+          'f:annotations':
+            .: {}
+            'f:openshift.io/display-name': {}
+          'f:labels':
+            .: {}
+            'f:opendatahub.io/dashboard': {}
+        'f:spec':
+          'f:accessModes': {}
+          'f:resources':
+            'f:requests':
+              .: {}
+              'f:storage': {}
+          'f:volumeMode': {}
+    - manager: kube-controller-manager
+      operation: Update
+      apiVersion: v1
+      time: '2025-10-16T15:25:14Z'
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:metadata':
+          'f:annotations':
+            'f:pv.kubernetes.io/bind-completed': {}
+            'f:pv.kubernetes.io/bound-by-controller': {}
+            'f:volume.beta.kubernetes.io/storage-provisioner': {}
+            'f:volume.kubernetes.io/storage-provisioner': {}
+        'f:spec':
+          'f:volumeName': {}
+    - manager: kube-controller-manager
+      operation: Update
+      apiVersion: v1
+      time: '2025-10-16T15:25:14Z'
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:status':
+          'f:accessModes': {}
+          'f:capacity':
+            .: {}
+            'f:storage': {}
+          'f:phase': {}
+      subresource: status
+  namespace: demo-hs
+  finalizers:
+    - kubernetes.io/pvc-protection
+  labels:
+    opendatahub.io/dashboard: 'true'
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
+  volumeName: pvc-7d0bba9c-cb19-4021-802f-877da1ef1ecd
+  storageClassName: gp3-csi
+  volumeMode: Filesystem
+status:
+  phase: Bound
+  accessModes:
+    - ReadWriteOnce
+  capacity:
+    storage: 100Gi
