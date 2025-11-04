@@ -2,11 +2,5 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - nvidia-hw-profile-25-percent.yaml
+  # - nvidia-hw-profile-25-percent.yaml
   - nvidia-hw-profile-100-percent.yaml
-  - demo-hw-profile-ns.yaml
-  - wb-100-percent.yaml
-  - wb1-25-percent.yaml
-  - wb2-25-percent.yaml
-  - wb3-25-percent.yaml
-  - wb4-25-percent.yaml

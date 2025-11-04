@@ -1,0 +1,60 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  annotations:
+    description: Red Hat AI Inference Server ServingRuntime with CUDA support (for NVIDIA GPUs)
+    opendatahub.io/apiProtocol: REST
+    opendatahub.io/model-type: '["generative"]'
+    opendatahub.io/modelServingSupport: '["single"]'
+    openshift.io/display-name: RHAIIS NVIDIA GPU ServingRuntime for KServe
+    openshift.io/provider-display-name: Red Hat, Inc.
+    tags: rhods,rhoai,kserve,servingruntime,vllm,rhaiis,inference
+    template.openshift.io/documentation-url: https://docs.redhat.com/en/documentation/red_hat_ai_inference_server/
+    template.openshift.io/long-description: >-
+      This template defines resources needed to deploy Red Hat AI Inference Server (vLLM)
+      NVIDIA GPU ServingRuntime with KServe in Red Hat OpenShift AI
+  labels:
+    opendatahub.io/dashboard: "true"
+  name: rhaiis-cuda
+  namespace: redhat-ods-applications
+objects:
+- apiVersion: serving.kserve.io/v1alpha1
+  kind: ServingRuntime
+  metadata:
+    annotations:
+      opendatahub.io/apiProtocol: REST
+      opendatahub.io/recommended-accelerators: '["nvidia.com/gpu"]'
+      opendatahub.io/runtime-version: v3.2.3
+      openshift.io/display-name: RHAIIS NVIDIA GPU ServingRuntime
+    labels:
+      opendatahub.io/dashboard: "true"
+    name: rhaiis-cuda-runtime
+  spec:
+    annotations:
+      prometheus.io/path: /metrics
+      prometheus.io/port: "8080"
+    containers:
+    - args:
+      - --port=8080
+      - --model=/mnt/models
+      - --served-model-name={{.Name}}
+      command:
+      - python
+      - -m
+      - vllm.entrypoints.openai.api_server
+      env:
+      - name: HF_HOME
+        value: /tmp/hf_home
+      - name: HF_HUB_OFFLINE
+        value: "1"
+      - name: VLLM_NO_USAGE_STATS
+        value: "1"
+      image: registry.redhat.io/rhaiis/vllm-cuda-rhel9:3.2.3
+      name: kserve-container
+      ports:
+      - containerPort: 8080
+        protocol: TCP
+    multiModel: false
+    supportedModelFormats:
+    - autoSelect: true
+      name: vLLM
