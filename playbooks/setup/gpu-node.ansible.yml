@@ -6,7 +6,7 @@
     # g6e.4xlarge NVIDIA L40S 1 GPU vRAM 48GB
     # g6.12xlarge NVIDIA L4 4 GPU vRAM 96GB (so each GPU has 24GB vRAM; 4x24 = 96GB)
     # g6e.24xlarge NVIDIA L40S 4 GPUs vRAM 192GB
-    gpu_instance_type: g6.12xlarge
+    gpu_instance_type: g6e.4xlarge
     gpu_node_label: "node-role.kubernetes.io/gpu"
     namespace: openshift-machine-api
 
@@ -65,7 +65,7 @@
           }
           },
           'spec': {
-          'replicas': 1,
+          'replicas': 2,
           'selector': {
           'matchLabels': {
           'machine.openshift.io/cluster-api-machineset': gpu_machineset
@@ -132,42 +132,41 @@
       set_fact:
         gpu_node_name: "{{ gpu_node_names.stdout }}"
 
-    - name: Print status of pods on GPU node
+    - name: Print status of nvidia-driver-daemonset pods on GPU node
       shell: |
-        required_pods="nvidia-driver-daemonset nvidia-operator-validator"
-        echo "Pod status on GPU node(s):"
-        for node_name in {{ gpu_node_name.split() }}; do
-          echo "=== Pods on node: $node_name ==="
-          for pod_pattern in $required_pods; do
-            oc get pods --all-namespaces --field-selector spec.nodeName=$node_name -o wide --no-headers | grep "$pod_pattern" || echo "No pod found for $pod_pattern on $node_name"
-          done
-        done
-      register: gpu_node_pods_status
+        pod_pattern="nvidia-driver-daemonset"
+        gpu_node_name="{{ gpu_node_name }}"
+        echo "nvidia-driver-daemonset pod status on GPU node(s):"
+        
+          echo "=== Pods on node: $gpu_node_name ==="
+          oc get pods --all-namespaces --field-selector spec.nodeName=$gpu_node_name -o wide --no-headers | grep "$pod_pattern" || echo "No pod found for $pod_pattern on $gpu_node_name"
+        
+      register: nvidia_driver_daemonset_status
       changed_when: false
       ignore_errors: true
 
-    - name: Print each GPU node pod status line
+    - name: Print each nvidia-driver-daemonset pod status line
       debug:
         msg: "{{ item }}"
-      loop: "{{ gpu_node_pods_status.stdout.split('\n') }}"
-
+      loop: "{{ nvidia_driver_daemonset_status.stdout.split('\n') }}"
+    
     - name: Wait for important NVIDIA GPU operator pods to be Running
       shell: |
-        required_pods="nvidia-driver-daemonset nvidia-operator-validator"
+        required_pods="nvidia-driver-daemonset"
         not_ready=""
         echo "Pod status summary on GPU node(s):"
-
-        for node_name in {{ gpu_node_name.split() }}; do
-          echo "=== Checking pods on node: $node_name ==="
+        gpu_node_name="{{ gpu_node_name }}"
+        
+          echo "=== Checking pods on node:  ==="
           for pod_pattern in $required_pods; do
-            total=$(oc get pods --all-namespaces --field-selector spec.nodeName=$node_name --no-headers | grep "$pod_pattern" | wc -l)
-            running=$(oc get pods --all-namespaces --field-selector spec.nodeName=$node_name --no-headers | grep "$pod_pattern" | grep Running | wc -l)
-            echo "$pod_pattern on $node_name: $running/$total Running"
+            total=$(oc get pods --all-namespaces --field-selector spec.nodeName=$gpu_node_name --no-headers | grep "$pod_pattern" | wc -l)
+            running=$(oc get pods --all-namespaces --field-selector spec.nodeName=$gpu_node_name --no-headers | grep "$pod_pattern" | grep Running | wc -l)
+            echo "$pod_pattern on $gpu_node_name: $running/$total Running"
             if [ "$total" -eq 0 ] || [ "$running" -lt "$total" ]; then
-              not_ready="$not_ready $pod_pattern@$node_name"
+              not_ready="$not_ready $pod_pattern@$gpu_node_name"
             fi
           done
-        done
+     
         if [ -z "$not_ready" ]; then
           echo "All required NVIDIA pods are Running on GPU node(s)."
           exit 0
@@ -176,26 +175,25 @@
           exit 1
         fi
       register: nvidia_pods_ready
-      retries: 40 # 40 x 30s = 1200s = 20min
+      retries: 30 # 30 x 30s = 900s = 15min
       delay: 30
       until: nvidia_pods_ready.rc == 0
       changed_when: false
 
-    - name: Print status of NVIDIA GPU operator pods
+    - name: Print status of nvidia-operator-validator pods on GPU node
       shell: |
-        required_pods="nvidia-driver-daemonset nvidia-operator-validator"
-        echo "Pod status on GPU node(s):"
-        for node_name in {{ gpu_node_name.split() }}; do
-          echo "=== Pods on node: $node_name ==="
-          for pod_pattern in $required_pods; do
-            oc get pods --all-namespaces --field-selector spec.nodeName=$node_name -o wide --no-headers | grep "$pod_pattern" || echo "No pod found for $pod_pattern on $node_name"
-          done
-        done
-      register: nvidia_pods_status
+        pod_pattern="nvidia-driver-daemonset"
+        gpu_node_name="{{ gpu_node_name }}"
+        echo "nvidia-driver-daemonset pod status on GPU node(s):"
+        
+          echo "=== Pods on node: $gpu_node_name ==="
+          oc get pods --all-namespaces --field-selector spec.nodeName=$gpu_node_name -o wide --no-headers | grep "$pod_pattern" || echo "No pod found for $pod_pattern on $gpu_node_name"
+        
+      register: nvidia_driver_daemonset_status
       changed_when: false
       ignore_errors: true
 
-    - name: Print each NVIDIA pod status line
+    - name: Print each nvidia-driver-daemonset pod status line
       debug:
         msg: "{{ item }}"
-      loop: "{{ nvidia_pods_status.stdout.split('\n') }}"
+      loop: "{{ nvidia_driver_daemonset_status.stdout.split('\n') }}"

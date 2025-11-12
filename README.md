@@ -47,14 +47,40 @@ Before using this repository, ensure you have the following:
 
 ### 2. Ansible and ansible-playbook
 
-- Install Ansible on your local machine (macOS/Linux):
-  ```sh
-  pip install --user ansible
-  ```
-- Or, using Homebrew on macOS:
+- For macOS:
   ```sh
   brew install ansible
   ```
+
+- For Linux:
+  - Using pip (if Python is installed):
+    ```sh
+    pip install --user ansible
+    ```
+  - For Debian/Ubuntu:
+    ```sh
+    sudo apt update
+    sudo apt install ansible
+    ```
+  - For RHEL/CentOS/Fedora:
+    ```sh
+    # For Fedora
+    sudo dnf install ansible
+    # For RHEL/CentOS
+    sudo yum install ansible
+    ```
+
+- For Windows:
+  - Using pip (if Python is installed):
+    ```sh
+    pip install --user ansible
+    ```
+  - Using WSL (Windows Subsystem for Linux):
+    ```sh
+    # Install Ansible inside WSL (Ubuntu/Debian)
+    sudo apt update
+    sudo apt install ansible
+    ```
 - Verify installation:
   ```sh
   ansible --version
@@ -65,7 +91,10 @@ Before using this repository, ensure you have the following:
 
 - Install the OpenShift CLI
   - [Official documentation](https://docs.openshift.com/container-platform/latest/cli_reference/openshift_cli/getting-started-cli.html).
-  - Download [Link](https://access.redhat.com/downloads/content/290/ver=4.18/rhel---9/4.18.13/x86_64/product-software)
+  - Download for Windows [Link](https://downloads-openshift-console.apps.cluster-wfp7h.wfp7h.sandbox1962.opentlc.com/amd64/windows/oc.zip)
+  - Download for Mac [LINK](https://downloads-openshift-console.apps.cluster-wfp7h.wfp7h.sandbox1962.opentlc.com/amd64/mac/oc.zip)
+  - Download for Linux [LINK](https://downloads-openshift-console.apps.cluster-wfp7h.wfp7h.sandbox1962.opentlc.com/amd64/linux/oc.tar)
+
 - Verify installation:
   ```sh
   oc version
@@ -95,7 +124,7 @@ ansible-playbook playbooks/cluster-setup.ansible.yml
   - Install RHOAI and depdendent components
 
 > [!IMPORTANT]
-> Don't run automation for individual components as they get run as part of full cluster setup.
+> When running this playbook, you don't need to run automation for individual components as they get run as part of full cluster setup.
 
 ### Individual Component Setup
 

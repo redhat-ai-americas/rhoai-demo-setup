@@ -1,0 +1,45 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  annotations:
+    opendatahub.io/hardware-profile-name: nvidia-100-percent
+    opendatahub.io/hardware-profile-namespace: redhat-ods-applications
+    openshift.io/display-name: Llama-3.1-8B-Instruct
+    serving.kserve.io/deploymentMode: RawDeployment
+  name: llama-31-8b-instruct
+  namespace: demo-project
+  labels:
+    networking.kserve.io/visibility: exposed
+    opendatahub.io/dashboard: 'true'
+spec:
+  predictor:
+    automountServiceAccountToken: false
+    maxReplicas: 1
+    minReplicas: 1
+    model:
+      args:
+        - '--tensor-parallel-size=2'
+        - '--gpu-memory-utilization=0.8'
+        - '--max-model-len=20000'
+      modelFormat:
+        name: vLLM
+      name: ''
+      resources:
+        limits:
+          cpu: '16'
+          memory: 42Gi
+          nvidia.com/gpu: '2'
+        requests:
+          cpu: '16'
+          memory: 42Gi
+          nvidia.com/gpu: '2'
+      runtime: rhaiis-cuda-runtime
+      storageUri: 'oci://registry.redhat.io/rhelai1/modelcar-llama-3-1-8b-instruct-quantized-w4a16:1.5'
+    nodeSelector:
+      nvidia.com/gpu.sharing-strategy: none
+    tolerations:
+      - effect: NoSchedule
+        key: nvidia.com/gpu
+        operator: Equal
+        value: '100'
+

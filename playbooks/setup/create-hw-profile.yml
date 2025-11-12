@@ -1,0 +1,12 @@
+- name: Create Hardware Profile for NVIDIA GPU
+  hosts: localhost
+  gather_facts: no
+  vars:
+    repo_dir: "{{ lookup('env', 'REPO_DIR') | default(playbook_dir | dirname | dirname, true) }}"
+  tasks:
+    - name: Create Hardware Profile for NVIDIA GPU
+      shell: "oc apply -k {{ repo_dir }}/components/18-hw-profile"
+      register: create_hw_profile_apply
+      retries: 3
+      delay: 10
+      until: create_hw_profile_apply.rc == 0

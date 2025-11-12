@@ -2,7 +2,7 @@
 - import_playbook: setup/serverless-operator.ansible.yml
 - import_playbook: setup/servicemesh-operator.ansible.yml
 
-- name: Wait for 1 minute
+- name: Wait for 30 seconds
   hosts: localhost
   gather_facts: no
   tasks:
@@ -13,7 +13,7 @@
 - import_playbook: setup/rhoai-operator.ansible.yml
 # - import_playbook: setup/serving-runtime.ansible.yml
 
-- name: Wait for 1 minute
+- name: Wait for 30 seconds
   hosts: localhost
   gather_facts: no
   tasks:

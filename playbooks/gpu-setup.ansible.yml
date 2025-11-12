@@ -4,7 +4,7 @@
 # - import_playbook: setup/gpu-timeslicing.ansible.yml
 # - import_playbook: setup/gpu-taint.ansible.yml
 
-- name: Wait for 1 minute
+- name: Wait for 30 seconds
   hosts: localhost
   gather_facts: no
   tasks:
