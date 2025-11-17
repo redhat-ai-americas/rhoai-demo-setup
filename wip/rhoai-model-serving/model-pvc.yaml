@@ -1,0 +1,36 @@
+# apiVersion: v1
+# kind: PersistentVolumeClaim
+# metadata:
+#   annotations:
+#     openshift.io/display-name: pvc-test
+#     pv.kubernetes.io/bind-completed: "yes"
+#     pv.kubernetes.io/bound-by-controller: "yes"
+#     volume.beta.kubernetes.io/storage-provisioner: ebs.csi.aws.com
+#     volume.kubernetes.io/selected-node: ip-10-0-53-30.us-east-2.compute.internal
+#     volume.kubernetes.io/storage-provisioner: ebs.csi.aws.com
+#   labels:
+#     opendatahub.io/dashboard: "true"
+#   name: pvc-test
+#   namespace: demo-hs
+# spec:
+#   accessModes:
+#   - ReadWriteOnce
+#   resources:
+#     requests:
+#       storage: 100Gi
+#   storageClassName: gp3-csi
+  # volumeName: pvc-7d0bba9c-cb19-4021-802f-877da1ef1ecd
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-pvc
+  namespace: demo-vllm
+spec:
+  accessModes:
+    - ReadWriteMany
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: gp3-csi

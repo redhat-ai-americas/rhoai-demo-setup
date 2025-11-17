@@ -1,5 +1,15 @@
-- import_playbook: setup/gpu-node.ansible.yml
+# - import_playbook: setup/gpu-node.ansible.yml
 - import_playbook: setup/gpu-operators.ansible.yml
 - import_playbook: setup/gpu-dashboard.ansible.yml
-- import_playbook: setup/gpu-timeslicing.ansible.yml
-- import_playbook: setup/gpu-taint.ansible.yml
+# - import_playbook: setup/gpu-timeslicing.ansible.yml
+# - import_playbook: setup/gpu-taint.ansible.yml
+
+- name: Wait for 30 seconds
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Wait for 30 seconds
+      pause:
+        seconds: 30
+
+- import_playbook: setup/gpu-node.ansible.yml

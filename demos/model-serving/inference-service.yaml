@@ -1,0 +1,167 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  annotations:
+    opendatahub.io/hardware-profile-name: nvidia-100-percent
+    opendatahub.io/hardware-profile-namespace: redhat-ods-applications
+    openshift.io/display-name: Llama-3.1-8B-Instruct
+    serving.kserve.io/deploymentMode: RawDeployment
+  resourceVersion: '261522'
+  name: llama-31-8b-instruct
+  uid: 22d8fbc7-8167-4bbf-b26e-312fa18ff507
+  creationTimestamp: '2025-11-05T23:54:13Z'
+  generation: 1
+  managedFields:
+    - apiVersion: serving.kserve.io/v1beta1
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:metadata':
+          'f:finalizers':
+            .: {}
+            'v:"inferenceservice.finalizers"': {}
+            'v:"odh.inferenceservice.finalizers"': {}
+      manager: manager
+      operation: Update
+      time: '2025-11-05T23:54:13Z'
+    - apiVersion: serving.kserve.io/v1beta1
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:metadata':
+          'f:annotations':
+            .: {}
+            'f:opendatahub.io/hardware-profile-name': {}
+            'f:opendatahub.io/hardware-profile-namespace': {}
+            'f:openshift.io/display-name': {}
+            'f:serving.kserve.io/deploymentMode': {}
+          'f:labels':
+            .: {}
+            'f:networking.kserve.io/visibility': {}
+            'f:opendatahub.io/dashboard': {}
+        'f:spec':
+          .: {}
+          'f:predictor':
+            .: {}
+            'f:maxReplicas': {}
+            'f:minReplicas': {}
+            'f:model':
+              .: {}
+              'f:args': {}
+              'f:env': {}
+              'f:modelFormat':
+                .: {}
+                'f:name': {}
+              'f:resources':
+                .: {}
+                'f:limits':
+                  .: {}
+                  'f:cpu': {}
+                  'f:memory': {}
+                  'f:nvidia.com/gpu': {}
+                'f:requests':
+                  .: {}
+                  'f:cpu': {}
+                  'f:memory': {}
+                  'f:nvidia.com/gpu': {}
+              'f:runtime': {}
+              'f:storageUri': {}
+      manager: unknown
+      operation: Update
+      time: '2025-11-05T23:54:13Z'
+    - apiVersion: serving.kserve.io/v1beta1
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:status':
+          .: {}
+          'f:address':
+            .: {}
+            'f:url': {}
+          'f:components':
+            .: {}
+            'f:predictor': {}
+          'f:conditions': {}
+          'f:deploymentMode': {}
+          'f:modelStatus':
+            .: {}
+            'f:copies':
+              .: {}
+              'f:failedCopies': {}
+              'f:totalCopies': {}
+            'f:states':
+              .: {}
+              'f:activeModelState': {}
+              'f:targetModelState': {}
+            'f:transitionStatus': {}
+          'f:observedGeneration': {}
+          'f:url': {}
+      manager: manager
+      operation: Update
+      subresource: status
+      time: '2025-11-06T00:00:33Z'
+  namespace: demo-project
+  finalizers:
+    - inferenceservice.finalizers
+    - odh.inferenceservice.finalizers
+  labels:
+    networking.kserve.io/visibility: exposed
+    opendatahub.io/dashboard: 'true'
+spec:
+  predictor:
+    automountServiceAccountToken: false
+    maxReplicas: 1
+    minReplicas: 1
+    model:
+      args:
+        - '--tensor-parallel-size=2'
+        - '--gpu-memory-utilization=0.8'
+        - '--max-model-len=20000'
+      modelFormat:
+        name: vLLM
+      name: ''
+      resources:
+        limits:
+          cpu: '16'
+          memory: 42Gi
+          nvidia.com/gpu: '2'
+        requests:
+          cpu: '16'
+          memory: 42Gi
+          nvidia.com/gpu: '2'
+      runtime: llama-31-8b-instruct
+      storageUri: 'oci://registry.redhat.io/rhelai1/modelcar-llama-3-1-8b-instruct-quantized-w4a16:1.5'
+    nodeSelector:
+      nvidia.com/gpu.sharing-strategy: none
+    tolerations:
+      - effect: NoSchedule
+        key: nvidia.com/gpu
+        operator: Equal
+        value: '100'
+status:
+  address:
+    url: 'https://llama-31-8b-instruct-predictor.demo-project.svc.cluster.local'
+  components:
+    predictor: {}
+  conditions:
+    - lastTransitionTime: '2025-11-05T23:54:14Z'
+      status: 'True'
+      type: IngressReady
+    - lastTransitionTime: '2025-11-06T00:00:33Z'
+      status: 'True'
+      type: PredictorReady
+    - lastTransitionTime: '2025-11-06T00:00:33Z'
+      status: 'True'
+      type: Ready
+    - lastTransitionTime: '2025-11-05T23:54:14Z'
+      severity: Info
+      status: 'False'
+      type: Stopped
+  deploymentMode: RawDeployment
+  modelStatus:
+    copies:
+      failedCopies: 0
+      totalCopies: 1
+    states:
+      activeModelState: Loaded
+      targetModelState: Loaded
+    transitionStatus: UpToDate
+  observedGeneration: 1
+  url: 'https://llama-31-8b-instruct-demo-project.apps.cluster-b68s6.b68s6.sandbox301.opentlc.com'

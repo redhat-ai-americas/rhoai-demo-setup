@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  annotations:
+    openshift.io/display-name: wb-gpu-storage
+  labels:
+    opendatahub.io/dashboard: "true"
+  name: wb-gpu-storage
+  namespace: demo-project
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi

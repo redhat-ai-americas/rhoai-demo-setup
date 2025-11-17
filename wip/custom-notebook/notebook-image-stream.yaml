@@ -1,0 +1,37 @@
+kind: ImageStream
+apiVersion: image.openshift.io/v1
+metadata:
+  annotations:
+    opendatahub.io/notebook-image-desc: A custom Jupyter Notebook image 
+    opendatahub.io/notebook-image-name: Demo Custom Notebook 
+  name: demo-custom-notebook
+  namespace: redhat-ods-applications 
+  labels: 
+    app.kubernetes.io/created-by: byon
+    opendatahub.io/dashboard: 'true'
+    app.kubernetes.io/part-of: workbenches
+    app.opendatahub.io/workbenches: 'true'
+    component.opendatahub.io/name: notebooks
+    opendatahub.io/component: 'true'
+    opendatahub.io/notebook-image: 'true'
+    platform.opendatahub.io/part-of: workbenches
+spec:
+  lookupPolicy:
+    local: true
+  tags:
+    - name: '1.0' 
+      annotations: 
+        opendatahub.io/notebook-python-dependencies: '[{"name":"PyTorch","version":"2.2"}]' 
+        opendatahub.io/notebook-software: '[{"name":"Python","version":"v3.11"}]' 
+        opendatahub.io/workbench-image-recommended: 'true' 
+        opendatahub.io/image-tag-outdated: 'true' 
+        opendatahub.io/notebook-build-commit: '3e71410' 
+      from:
+        kind: DockerImage
+        name: 'quay.io/modh/rocm-notebooks@sha256:199367d2946fc8427611b4b96071cb411433ffbb5f0988279b10150020af22db' 
+        #name: 'quay.io/rh-ee-hshishir/images/demo-image@sha256:1d3912fa14e70caf10987bba5230e994f703ce15a2a2883039b8f6e4bc8cf1e1' 
+      importPolicy:
+      importPolicy:
+        importMode: Legacy
+      referencePolicy:
+        type: Source

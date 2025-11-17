@@ -1,0 +1,44 @@
+apiVersion: workspace.devfile.io/v1alpha2
+kind: DevWorkspaceTemplate
+metadata:
+  annotations:
+    controller.devfile.io/allow-import-from: '*'
+    web-terminal.redhat.com/unmanaged-state: 'true'
+  name: web-terminal-tooling
+  namespace: openshift-operators
+  labels:
+    console.openshift.io/terminal: 'true'
+spec:
+  components:
+    - container:
+        args:
+          - "/bin/bash"
+          - "-c"
+          - |
+            #!/bin/bash
+
+            [ -d "$HOME/bin" ] || mkdir "$HOME/bin"
+
+            echo "
+            GIT_REPO=https://github.com/redhat-ai-americas/rhoai-demo-setup.git
+            GIT_PATH=rhoai-demo-setup
+
+            [ -e ~/\${GIT_PATH} ] || git clone \${GIT_REPO} ~/\${GIT_PATH}
+            [ -e ~/\${GIT_PATH} ] && cd ~/\${GIT_PATH}
+
+            [ -d \"\${HOME}/bin\" ] && PATH=\${HOME}/bin:\${PATH}
+
+            " >> /home/user/.bashrc
+
+            . /home/user/.bashrc
+
+            sleep infinity  # just in case
+
+        cpuLimit: 400m
+        cpuRequest: 100m
+        image: ghcr.io/redhat-na-ssa/web-terminal-tooling:latest
+        memoryLimit: 512Mi
+        memoryRequest: 128Mi
+        mountSources: false
+        sourceMapping: /projects
+      name: web-terminal-tooling

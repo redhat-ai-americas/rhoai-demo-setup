@@ -1,6 +1,24 @@
 - import_playbook: setup/authorino-operator.ansible.yml
 - import_playbook: setup/serverless-operator.ansible.yml
 - import_playbook: setup/servicemesh-operator.ansible.yml
+
+- name: Wait for 30 seconds
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Wait for 30 seconds
+      pause:
+        seconds: 30
+
 - import_playbook: setup/rhoai-operator.ansible.yml
-- import_playbook: setup/serving-runtime.ansible.yml
+# - import_playbook: setup/serving-runtime.ansible.yml
+
+- name: Wait for 30 seconds
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Wait for 30 seconds
+      pause:
+        seconds: 30
+
 - import_playbook: setup/monitoring.ansible.yml

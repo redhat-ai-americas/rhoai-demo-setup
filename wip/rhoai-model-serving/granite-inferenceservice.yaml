@@ -1,0 +1,46 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  annotations:
+    openshift.io/display-name: granite-7b-starter - 1.4.0
+    security.opendatahub.io/enable-auth: 'true'
+    serving.knative.openshift.io/enablePassthrough: 'true'
+    serving.kserve.io/deploymentMode: Serverless
+    sidecar.istio.io/inject: 'true'
+    sidecar.istio.io/rewriteAppHTTPProbers: 'true'
+  name: granite-7b-starter-140
+  namespace: demo-vllm
+  labels:
+    opendatahub.io/dashboard: 'true'
+spec:
+  predictor:
+    automountServiceAccountToken: false
+    maxReplicas: 1
+    minReplicas: 1
+    model:
+      args:
+        - '--trust-remote-code'
+      env:
+        - name: PYTORCH_CUDA_ALLOC_CONF
+          value: 'max_split_size_mb:512'
+      modelFormat:
+        name: vLLM
+      name: ''
+      resources:
+        limits:
+          cpu: '2'
+          memory: 4Gi
+          nvidia.com/gpu: '1'
+        requests:
+          cpu: '2'
+          memory: 4Gi
+          nvidia.com/gpu: '1'
+      runtime: vllm-cuda-runtime-test
+      storageUri: 'oci://registry.redhat.io/rhelai1/modelcar-granite-7b-starter:1.4.0'
+    nodeSelector:
+      nvidia.com/gpu.sharing-strategy: none
+    tolerations:
+      - effect: NoSchedule
+        key: nvidia.com/gpu
+        operator: Exists
+        # value: '100'

@@ -24,7 +24,7 @@
 
     - name: Validate user login (simulate login)
       shell: >
-        oc login -u admin -p admin123 --insecure-skip-tls-verify
+        oc login -u admin -p openshift --insecure-skip-tls-verify
       register: login_attempt
       retries: 30
       delay: 20
@@ -36,4 +36,4 @@
         msg: |
           OpenShift admin user created.
           Username: admin
-          Password: admin123
+          Password: openshift

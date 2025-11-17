@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: gpu-node-test
+  namespace: gpu-test
+spec:
+  restartPolicy: OnFailure
+  containers:
+  - name: gpu-node-test
+    image: "nvcr.io/nvidia/k8s/cuda-sample:vectoradd-cuda11.7.1-ubuntu20.04"
+    resources:
+      limits:
+        nvidia.com/gpu: 1
+    command: ["/bin/bash", "-c"]
+    args:
+      - |
+        # Run the vectorAdd binary and capture output to a log file
+        echo "Starting CUDA vectorAdd execution" | tee -a /tmp/vectoradd.log
+        /vectorAdd 2>&1 | tee -a /tmp/vectoradd.log
+        if [ $? -eq 0 ]; then
+          echo "vectorAdd completed successfully" | tee -a /tmp/vectoradd.log
+        else
+          echo "vectorAdd failed" | tee -a /tmp/vectoradd.log
+          exit 1
+        fi
+        # Sleep for 30 seconds
+        echo "Sleeping for 30 seconds" | tee -a /tmp/vectoradd.log
+        sleep 30
+        echo "Sleep completed, exiting" | tee -a /tmp/vectoradd.log
+  tolerations:
+    - effect: NoSchedule
+      key: nvidia.com/gpu
+      operator: Exists

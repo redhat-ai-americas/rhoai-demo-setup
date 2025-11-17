@@ -26,14 +26,23 @@
 
     - name: Taint nodes
       shell: |
-        oc adm taint node -l nvidia.com/gpu.present=true nvidia.com/gpu=:NoSchedule --overwrite
-        oc adm drain -l nvidia.com/gpu.present=true --ignore-daemonsets --delete-emptydir-data
-        oc adm uncordon -l nvidia.com/gpu.present=true-headers
+        oc adm taint node -l nvidia.com/gpu.present=true nvidia.com/gpu=100:NoSchedule --overwrite
       register: taint_gpu_nodes
       retries: 10
       delay: 10
       until: taint_gpu_nodes.rc == 0
       changed_when: false
+    
+    # - name: Taint nodes
+    #   shell: |
+    #     oc adm taint node -l nvidia.com/gpu.present=true nvidia.com/gpu=:NoSchedule --overwrite
+    #     # oc adm drain -l nvidia.com/gpu.present=true --ignore-daemonsets --delete-emptydir-data
+    #     # oc adm uncordon -l nvidia.com/gpu.present=true-headers
+    #   register: taint_gpu_nodes
+    #   retries: 10
+    #   delay: 10
+    #   until: taint_gpu_nodes.rc == 0
+    #   changed_when: false
 
     - name: Verify GPU nodes are tainted
       shell: |
@@ -49,27 +58,27 @@
         msg: "GPU nodes taints: {{ gpu_node_taints.stdout }}"
       when: gpu_node_taints.stdout != ""
 
-    - name: Uncordon all GPU nodes
-      shell: |
-        for node in $(oc get nodes -l nvidia.com/gpu.present=true -o name | awk -F/ '{print $2}'); do
-          oc adm uncordon "$node"
-        done
-      register: uncordon_gpu_nodes
+    # - name: Uncordon all GPU nodes
+    #   shell: |
+    #     for node in $(oc get nodes -l nvidia.com/gpu.present=true -o name | awk -F/ '{print $2}'); do
+    #       oc adm uncordon "$node"
+    #     done
+    #   register: uncordon_gpu_nodes
 
-    - name: Print uncordon result for GPU nodes
-      debug:
-        msg: "{{ uncordon_gpu_nodes.stdout }}"
+    # - name: Print uncordon result for GPU nodes
+    #   debug:
+    #     msg: "{{ uncordon_gpu_nodes.stdout }}"
 
-    - name: Verify GPU nodes are ready
-      shell: |
-        oc get nodes -l nvidia.com/gpu.present=true -o jsonpath='{.items[*].status.conditions[?(@.type=="Ready")].status}'
-      register: gpu_node_ready
-      retries: 5
-      delay: 5
-      until: gpu_node_ready.stdout == "True"
-      changed_when: false
+    # - name: Verify GPU nodes are ready
+    #   shell: |
+    #     oc get nodes -l nvidia.com/gpu.present=true -o jsonpath='{.items[*].status.conditions[?(@.type=="Ready")].status}'
+    #   register: gpu_node_ready
+    #   retries: 5
+    #   delay: 5
+    #   until: gpu_node_ready.stdout == "True"
+    #   changed_when: false
 
-    - name: Print GPU node readiness status
-      debug:
-        msg: "GPU nodes readiness status: {{ gpu_node_ready.stdout }}"
-      when: gpu_node_ready.stdout == "True"
+    # - name: Print GPU node readiness status
+    #   debug:
+    #     msg: "GPU nodes readiness status: {{ gpu_node_ready.stdout }}"
+    #   when: gpu_node_ready.stdout == "True"

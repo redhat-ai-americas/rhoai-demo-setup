@@ -1,0 +1,12 @@
+- name: Enable RHOAI features
+  hosts: localhost
+  gather_facts: no
+  vars:
+    repo_dir: "{{ lookup('env', 'REPO_DIR') | default(playbook_dir | dirname | dirname, true) }}"
+  tasks:
+    - name: Enable RHOAI features (Model Registry, Model Catalog, Hardware Profiles)
+      shell: "oc apply -k {{ repo_dir }}/components/17-enable-features"
+      register: enable_rhoai_features_apply
+      retries: 3
+      delay: 10
+      until: enable_rhoai_features_apply.rc == 0

@@ -1,5 +1,34 @@
 - import_playbook: setup/prereqs.ansible.yml
 - import_playbook: setup/admin-user.ansible.yml
 - import_playbook: setup/scale-cpumachineset.ansible.yml
-- import_playbook: gpu-setup.ansible.yml
+
+- name: Wait for 30 seconds
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Wait for 30 seconds
+      pause:
+        seconds: 30
+
+- import_playbook: setup/gpu-operators.ansible.yml
+- import_playbook: setup/gpu-dashboard.ansible.yml
+
+- name: Wait for 30 seconds
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Wait for 30 seconds
+      pause:
+        seconds: 30
+
 - import_playbook: rhoai-setup.ansible.yml
+
+- name: Wait for 30 seconds
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Wait for 30 seconds
+      pause:
+        seconds: 30
+
+- import_playbook: setup/gpu-node.ansible.yml

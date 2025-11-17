@@ -1,0 +1,24 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: high-priority-job
+  labels:
+    kueue.x-k8s.io/queue-name: team-a-queue
+spec:
+  template:
+    spec:
+      containers:
+      - name: sleep
+        image: busybox
+        command: ["sleep", "3600"]
+        resources:
+          requests:
+            cpu: "6"
+            memory: "12Gi"
+            nvidia.com/gpu: "2"
+          limits:
+            cpu: "6"
+            memory: "12Gi"
+            nvidia.com/gpu: "2"
+      restartPolicy: Never
+      priorityClassName: high-priority
