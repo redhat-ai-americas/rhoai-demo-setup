@@ -4,5 +4,6 @@ kind: Kustomization
 resources:
   - rhoai-operator-group.yaml
   - rhoai-operator-ns.yaml
+  # - rhoai-3.0-subscription.yaml
   - rhoai-operator-subscription.yaml
-  - rhoai-operator-dsc.yaml
+  # - rhoai-operator-dsc.yaml
