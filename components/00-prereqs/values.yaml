@@ -1,0 +1,56 @@
+# Default values for prereqs
+# This chart installs OpenShift prerequisites including web terminal, console links, and banners
+
+# Console Notification Banner
+banner:
+  enabled: true
+  name: banner-demo
+  text: "DEMO ENVIRONMENT: Not for running production workloads."
+  location: BannerTop  # valid locations: BannerTop, BannerBottom, BannerTopBottom
+  color: '#FFF'
+  backgroundColor: '#9F0000'
+
+# Console Link
+consoleLink:
+  enabled: true
+  name: application-menu-rh-developer-blog
+  href: 'https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2-latest/'
+  location: ApplicationMenu
+  text: Red Hat OpenShift AI Documentation
+  applicationMenu:
+    section: Documentation
+    imageURL: https://i.ibb.co/tM8srwX/logo-redhat.png
+
+# Web Terminal Subscription
+webTerminal:
+  enabled: true
+  subscription:
+    name: web-terminal
+    namespace: openshift-operators
+    channel: fast
+    installPlanApproval: Automatic
+    source: redhat-operators
+    sourceNamespace: openshift-marketplace
+    # startingCSV: web-terminal.v1.10.0  # Optional: uncomment to pin version
+  
+  # Web Terminal Tooling DevWorkspaceTemplate
+  tooling:
+    enabled: true
+    name: web-terminal-tooling
+    namespace: openshift-operators
+    annotations:
+      controller.devfile.io/allow-import-from: '*'
+      web-terminal.redhat.com/unmanaged-state: 'true'
+    labels:
+      console.openshift.io/terminal: 'true'
+    image: ghcr.io/redhat-na-ssa/web-terminal-tooling:latest
+    # Alternative image: registry.redhat.io/web-terminal/web-terminal-tooling-rhel9@sha256:fec15ce394b043ec1e657746b26547c85cca75ac1fd9f5856a80ebe130319091
+    gitRepo: https://github.com/hemang-rh/demo-setup.git
+    resources:
+      cpuLimit: 400m
+      cpuRequest: 100m
+      memoryLimit: 512Mi
+      memoryRequest: 128Mi
+    mountSources: false
+    sourceMapping: /projects
+

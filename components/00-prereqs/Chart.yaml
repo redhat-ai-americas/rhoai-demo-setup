@@ -1,0 +1,7 @@
+apiVersion: v2
+name: prereqs
+description: A Helm chart for OpenShift prerequisites including web terminal, console links, and banners
+type: application
+version: 0.1.0
+appVersion: "1.0"
+

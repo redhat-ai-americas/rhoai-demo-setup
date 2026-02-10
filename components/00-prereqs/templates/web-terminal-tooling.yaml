@@ -1,0 +1,45 @@
+{{- if and .Values.webTerminal.enabled .Values.webTerminal.tooling.enabled }}
+apiVersion: workspace.devfile.io/v1alpha2
+kind: DevWorkspaceTemplate
+metadata:
+  annotations:
+    {{- range $key, $value := .Values.webTerminal.tooling.annotations }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+  name: {{ .Values.webTerminal.tooling.name }}
+  namespace: {{ .Values.webTerminal.tooling.namespace }}
+  labels:
+    {{- range $key, $value := .Values.webTerminal.tooling.labels }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+spec:
+  components:
+    - container:
+        args:
+          - "/bin/bash"
+          - "-c"
+          - |
+            #!/bin/bash
+
+            echo "
+            GIT_REPO={{ .Values.webTerminal.tooling.gitRepo }}
+
+            [ -e ~/demo-setup ] || git clone \${GIT_REPO}
+            [ -e ~/demo-setup ] && cd ~/demo-setup
+
+            " >> /home/user/.bashrc
+
+            . /home/user/.bashrc
+
+            sleep infinity  # just in case
+
+        cpuLimit: {{ .Values.webTerminal.tooling.resources.cpuLimit }}
+        cpuRequest: {{ .Values.webTerminal.tooling.resources.cpuRequest }}
+        image: {{ .Values.webTerminal.tooling.image }}
+        memoryLimit: {{ .Values.webTerminal.tooling.resources.memoryLimit }}
+        memoryRequest: {{ .Values.webTerminal.tooling.resources.memoryRequest }}
+        mountSources: {{ .Values.webTerminal.tooling.mountSources }}
+        sourceMapping: {{ .Values.webTerminal.tooling.sourceMapping }}
+      name: web-terminal-tooling
+{{- end }}
+

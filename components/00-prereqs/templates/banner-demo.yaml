@@ -1,0 +1,14 @@
+{{- if .Values.banner.enabled }}
+apiVersion: console.openshift.io/v1
+kind: ConsoleNotification
+metadata:
+  name: {{ .Values.banner.name }}
+spec:
+  text: {{ .Values.banner.text | quote }}
+  # valid locations: BannerTop, BannerBottom, BannerTopBottom
+  location: {{ .Values.banner.location }}
+  # https://htmlcolorcodes.com/color-picker
+  color: {{ .Values.banner.color | quote }}
+  backgroundColor: {{ .Values.banner.backgroundColor | quote }}
+{{- end }}
+

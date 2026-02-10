@@ -1,0 +1,22 @@
+# Default values for prereqs
+# This chart installs OpenShift prerequisites including web terminal, console links, and banners
+
+# Console Notification Banner
+banner:
+  enabled: true
+  name: banner-demo
+  text: "DEMO ENVIRONMENT: Not for running production workloads."
+  location: BannerTop  # valid locations: BannerTop, BannerBottom, BannerTopBottom
+  color: '#FFF'
+  backgroundColor: '#9F0000'
+
+# Console Link
+consoleLink:
+  enabled: true
+  name: application-menu-rh-developer-blog
+  href: 'https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2-latest/'
+  location: ApplicationMenu
+  text: Red Hat OpenShift AI Documentation
+  applicationMenu:
+    section: Documentation
+    imageURL: https://i.ibb.co/tM8srwX/logo-redhat.png

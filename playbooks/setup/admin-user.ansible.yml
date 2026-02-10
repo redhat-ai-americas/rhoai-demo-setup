@@ -4,8 +4,8 @@
   vars:
     repo_dir: "{{ lookup('env', 'REPO_DIR') | default(playbook_dir | dirname | dirname, true) }}"
   tasks:
-    - name: Apply htpasswd configuration using kustomize
-      shell: "oc apply -k {{ repo_dir }}/components/01-admin-user"
+    - name: Apply htpasswd configuration using Helm
+      shell: "helm upgrade --install admin-user {{ repo_dir }}/components/01-admin-user --namespace openshift-config --create-namespace"
       register: admin_user_apply
       retries: 3
       delay: 10

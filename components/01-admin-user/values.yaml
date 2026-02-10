@@ -1,0 +1,19 @@
+# Default values for admin-user
+# This chart creates an admin user in OpenShift using htpasswd authentication
+
+# Admin user credentials
+admin:
+  username: admin
+  password: openshift
+  # Pre-generated bcrypt hash for password "openshift"
+  # To generate a new hash, use: htpasswd -nbBC 5 admin <password>
+  passwordHash: $2y$05$p6U1XULTDu/LtXjyE8b0QOR/KPgn6Hc3Q81xbkzkt.hMMrHDmxF/y
+
+# OAuth configuration
+oauth:
+  providerName: htpasswd_provider
+  mappingMethod: claim
+
+# Namespace for the secret
+namespace: openshift-config
+

@@ -1,0 +1,7 @@
+apiVersion: v2
+name: admin-user
+description: A Helm chart for creating an admin user in OpenShift using htpasswd
+type: application
+version: 0.1.0
+appVersion: "1.0"
+
