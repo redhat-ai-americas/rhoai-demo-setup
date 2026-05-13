@@ -6,7 +6,8 @@
     # g6e.4xlarge NVIDIA L40S 1 GPU vRAM 48GB
     # g6.12xlarge NVIDIA L4 4 GPU vRAM 96GB (so each GPU has 24GB vRAM; 4x24 = 96GB)
     # g6e.24xlarge NVIDIA L40S 4 GPUs vRAM 192GB
-    gpu_instance_type: g6e.4xlarge
+    # g6e.2xlarge NVIDIA L40S 1 GPU vRAM 48GB
+    gpu_instance_type: g6e.2xlarge
     gpu_node_label: "node-role.kubernetes.io/gpu"
     namespace: openshift-machine-api
 
@@ -65,7 +66,7 @@
           }
           },
           'spec': {
-          'replicas': 2,
+          'replicas': 1,
           'selector': {
           'matchLabels': {
           'machine.openshift.io/cluster-api-machineset': gpu_machineset
@@ -137,10 +138,10 @@
         pod_pattern="nvidia-driver-daemonset"
         gpu_node_name="{{ gpu_node_name }}"
         echo "nvidia-driver-daemonset pod status on GPU node(s):"
-        
+
           echo "=== Pods on node: $gpu_node_name ==="
           oc get pods --all-namespaces --field-selector spec.nodeName=$gpu_node_name -o wide --no-headers | grep "$pod_pattern" || echo "No pod found for $pod_pattern on $gpu_node_name"
-        
+
       register: nvidia_driver_daemonset_status
       changed_when: false
       ignore_errors: true
@@ -149,14 +150,14 @@
       debug:
         msg: "{{ item }}"
       loop: "{{ nvidia_driver_daemonset_status.stdout.split('\n') }}"
-    
+
     - name: Wait for important NVIDIA GPU operator pods to be Running
       shell: |
         required_pods="nvidia-driver-daemonset"
         not_ready=""
         echo "Pod status summary on GPU node(s):"
         gpu_node_name="{{ gpu_node_name }}"
-        
+
           echo "=== Checking pods on node:  ==="
           for pod_pattern in $required_pods; do
             total=$(oc get pods --all-namespaces --field-selector spec.nodeName=$gpu_node_name --no-headers | grep "$pod_pattern" | wc -l)
@@ -166,7 +167,7 @@
               not_ready="$not_ready $pod_pattern@$gpu_node_name"
             fi
           done
-     
+
         if [ -z "$not_ready" ]; then
           echo "All required NVIDIA pods are Running on GPU node(s)."
           exit 0
@@ -185,10 +186,10 @@
         pod_pattern="nvidia-driver-daemonset"
         gpu_node_name="{{ gpu_node_name }}"
         echo "nvidia-driver-daemonset pod status on GPU node(s):"
-        
+
           echo "=== Pods on node: $gpu_node_name ==="
           oc get pods --all-namespaces --field-selector spec.nodeName=$gpu_node_name -o wide --no-headers | grep "$pod_pattern" || echo "No pod found for $pod_pattern on $gpu_node_name"
-        
+
       register: nvidia_driver_daemonset_status
       changed_when: false
       ignore_errors: true

@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: grafana
+  name: grafana
+  namespace: grafana
+spec:
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+      - args:
+        - -config=/etc/grafana/config.ini
+        env:
+        - name: OAUTH_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              key: token
+              name: grafana-token
+        - name: CLUSTER_ROUTES_BASE
+          value: {{ .Values.clusterRoute }}
+        - name: GATEWAY_SERVICE_CA
+          valueFrom:
+            configMapKeyRef:
+              key: service-ca.crt
+              name: openshift-service-ca.crt
+        - name: GATEWAY_ADDRESS
+          value: logging-loki-gateway-http.openshift-logging.svc:8080
+        - name: CLUSTER_MONITORING_THANOS_QUERIER_OAUTH_ADDRESS
+          value: thanos-querier.openshift-monitoring.svc.cluster.local:9091/
+        - name: CLUSTER_MONITORING_ALERTMANAGER_ADDRESS
+          value: alertmanager-main.openshift-monitoring.svc:9094
+        image: docker.io/grafana/grafana:9.5.2
+        imagePullPolicy: IfNotPresent
+        name: grafana
+        ports:
+        - containerPort: 3000
+          name: http-grafana
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /robots.txt
+            port: 3000
+            scheme: HTTPS
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 2
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 256Mi
+          requests:
+            cpu: 250m
+            memory: 256Mi
+        volumeMounts:
+        - mountPath: /etc/grafana
+          name: grafana-config
+        - mountPath: /etc/tls/private
+          name: secret-grafana-tls
+        - mountPath: /var/lib/grafana/dashboards
+          name: grafana-dashboards-configs
+        - mountPath: /var/lib/grafana
+          name: grafana
+        - mountPath: /etc/grafana/provisioning/datasources
+          name: grafana-datasources
+        - mountPath: /etc/grafana/provisioning/dashboards
+          name: grafana-dashboards
+      serviceAccountName: grafana
+      volumes:
+      - configMap:
+          name: grafana-config-455kdg4tgt
+        name: grafana-config
+      - name: secret-grafana-tls
+        secret:
+          defaultMode: 420
+          secretName: grafana-tls
+      - name: grafana-dashboards-configs
+        projected:
+          sources:
+          - configMap:
+              name: grafana-dashboard-lokistack-chunks
+              optional: true
+          - configMap:
+              name: grafana-dashboard-lokistack-reads
+              optional: true
+          - configMap:
+              name: grafana-dashboard-lokistack-retention
+              optional: true
+          - configMap:
+              name: grafana-dashboard-lokistack-writes
+              optional: true
+      - configMap:
+          name: grafana-datasources-8tfkb28kfd
+        name: grafana-datasources
+      - configMap:
+          name: grafana-dashboards-f8c5mkfkhd
+        name: grafana-dashboards
+      - emptyDir: {}
+        name: grafana
