@@ -3,7 +3,7 @@
   gather_facts: false
   vars:
     # Version / platform
-    min_ocp_version: "4.16.0"         # set to "" to disable version gating
+    min_ocp_version: "4.19.0"         # set to "" to disable version gating
 
     # Optional readiness checks (booleans)
     require_default_sc: true           # fail if no default StorageClass
@@ -40,6 +40,7 @@
       failed_when: oc_whoami.rc != 0
 
     # --- Core checks ---
+
     - name: Count CPU worker nodes (non-GPU)
       shell: |
         oc get nodes -l 'node-role.kubernetes.io/worker' -o json | jq '
@@ -58,79 +59,6 @@
         fail_msg: "No CPU worker nodes detected (need at least one worker without GPU resources)."
         success_msg: "CPU worker nodes detected: {{ cpu_worker_count.stdout }}"
 
-    - name: Count GPU nodes by role label
-      shell: oc get nodes -l 'node-role.kubernetes.io/gpu' --no-headers | wc -l
-      register: gpu_role_count
-      changed_when: false
-
-    - name: Count GPU nodes by NFD label
-      shell: |
-        oc get nodes -o json | jq '
-          [.items[] | select(.metadata.labels["nvidia.com/gpu.present"]=="true")]
-          | length
-        '
-      register: gpu_nfd_count
-      changed_when: false
-
-    - name: Count GPU nodes by allocatable resource
-      shell: |
-        oc get nodes -o json | jq '
-          [.items[]
-            | ((.status.allocatable["nvidia.com/gpu"]? // "0") | tostring | tonumber)
-            | select(. > 0)
-          ]
-          | length
-        '
-      register: gpu_alloc_count
-      changed_when: false
-
-    - name: Compute GPU presence
-      set_fact:
-        gpu_present: >-
-          {{ (gpu_role_count.stdout | int) > 0 or (gpu_nfd_count.stdout | int) > 0 or (gpu_alloc_count.stdout | int) > 0 }}
-
-    - name: Assert at least one GPU node is available
-      assert:
-        that:
-          - gpu_present | bool
-        fail_msg: "No GPU nodes detected by role label, NFD label, or allocatable resource."
-        success_msg: "GPU detected (role: {{ gpu_role_count.stdout }}, NFD: {{ gpu_nfd_count.stdout }}, alloc: {{ gpu_alloc_count.stdout }})."
-
-    - name: Find unschedulable (cordoned) nodes
-      shell: |
-        oc get nodes -o json | jq -r '
-          .items[] | select(.spec.unschedulable==true) | .metadata.name
-        '
-      register: unschedulable_nodes
-      changed_when: false
-
-    - name: Assert all nodes are schedulable
-      assert:
-        that:
-          - (unschedulable_nodes.stdout_lines | length) == 0
-        fail_msg: "Found cordoned/unschedulable nodes: {{ unschedulable_nodes.stdout_lines | join(', ') }}"
-        success_msg: "All nodes are schedulable."
-
-    - name: List GPU node names (allocatable > 0)
-      shell: |
-        oc get nodes -o json | jq -r '
-          .items[]
-          | select(((.status.allocatable["nvidia.com/gpu"]? // "0") | tostring | tonumber) > 0)
-          | .metadata.name
-        '
-      register: gpu_node_names
-      changed_when: false
-
-    - name: Initialize GPU role label warning
-      set_fact:
-        gpu_label_warning: false
-
-    - name: Determine GPU role label warning
-      set_fact:
-        gpu_label_warning: true
-      when: (gpu_role_count.stdout | int) == 0 and ((gpu_nfd_count.stdout | int) > 0 or (gpu_alloc_count.stdout | int) > 0)
-
-    # --- Optional checks ---
     - name: Get current OpenShift version
       when: min_ocp_version | length > 0
       shell: oc get clusterversion version -o jsonpath='{.status.desired.version}'
@@ -237,6 +165,81 @@
         fail_msg: "ClusterOperators not Available=True: {{ (bad_cos.stdout_lines | default([])) | join(', ') }}"
         success_msg: "All critical ClusterOperators are Available=True."
 
+    - name: Count GPU nodes by role label
+      shell: oc get nodes -l 'node-role.kubernetes.io/gpu' --no-headers | wc -l
+      register: gpu_role_count
+      changed_when: false
+
+    - name: Count GPU nodes by NFD label
+      shell: |
+        oc get nodes -o json | jq '
+          [.items[] | select(.metadata.labels["nvidia.com/gpu.present"]=="true")]
+          | length
+        '
+      register: gpu_nfd_count
+      changed_when: false
+
+    - name: Count GPU nodes by allocatable resource
+      shell: |
+        oc get nodes -o json | jq '
+          [.items[]
+            | ((.status.allocatable["nvidia.com/gpu"]? // "0") | tostring | tonumber)
+            | select(. > 0)
+          ]
+          | length
+        '
+      register: gpu_alloc_count
+      changed_when: false
+
+    - name: Compute GPU presence
+      set_fact:
+        gpu_present: >-
+          {{ (gpu_role_count.stdout | int) > 0 or (gpu_nfd_count.stdout | int) > 0 or (gpu_alloc_count.stdout | int) > 0 }}
+
+    - name: Assert at least one GPU node is available
+      assert:
+        that:
+          - gpu_present | bool
+        fail_msg: "No GPU nodes detected by role label, NFD label, or allocatable resource."
+        success_msg: "GPU detected (role: {{ gpu_role_count.stdout }}, NFD: {{ gpu_nfd_count.stdout }}, alloc: {{ gpu_alloc_count.stdout }})."
+
+    - name: Find unschedulable (cordoned) nodes
+      shell: |
+        oc get nodes -o json | jq -r '
+          .items[] | select(.spec.unschedulable==true) | .metadata.name
+        '
+      register: unschedulable_nodes
+      changed_when: false
+
+    - name: Assert all nodes are schedulable
+      assert:
+        that:
+          - (unschedulable_nodes.stdout_lines | length) == 0
+        fail_msg: "Found cordoned/unschedulable nodes: {{ unschedulable_nodes.stdout_lines | join(', ') }}"
+        success_msg: "All nodes are schedulable."
+
+    - name: List GPU node names (allocatable > 0)
+      shell: |
+        oc get nodes -o json | jq -r '
+          .items[]
+          | select(((.status.allocatable["nvidia.com/gpu"]? // "0") | tostring | tonumber) > 0)
+          | .metadata.name
+        '
+      register: gpu_node_names
+      changed_when: false
+
+    - name: Initialize GPU role label warning
+      set_fact:
+        gpu_label_warning: false
+
+    - name: Determine GPU role label warning
+      set_fact:
+        gpu_label_warning: true
+      when: (gpu_role_count.stdout | int) == 0 and ((gpu_nfd_count.stdout | int) > 0 or (gpu_alloc_count.stdout | int) > 0)
+
+
+    # --- Optional checks ---
+ 
     - name: Check SCC restricted-v2 exists
       when: check_scc_restricted_v2 | bool
       shell: oc get scc restricted-v2 --no-headers
